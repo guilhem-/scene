@@ -1,0 +1,28 @@
+{
+  "name": "scene-performance-manager",
+  "version": "1.0.0",
+  "description": "Web-based performance list manager with audio playback",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "run": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "jest --coverage"
+  },
+  "keywords": [
+    "performance",
+    "music",
+    "audio",
+    "manager"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "multer": "^1.4.5-lts.1"
+  },
+  "devDependencies": {
+    "jest": "^30.2.0",
+    "supertest": "^7.2.2"
+  }
+}

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scene - Performance Manager</title>
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+  <div id="app">
+    <header class="header">
+      <h1>Scene</h1>
+      <p class="subtitle">Performance Manager</p>
+    </header>
+
+    <main class="main">
+      <div class="toolbar">
+        <button id="add-performance-btn" class="btn btn-primary">
+          + Add Performance
+        </button>
+      </div>
+
+      <div id="performance-list" class="performance-list">
+        <!-- Performance cards will be rendered here -->
+      </div>
+
+      <div id="empty-state" class="empty-state hidden">
+        <p>No performances yet.</p>
+        <p>Click "Add Performance" to get started.</p>
+      </div>
+
+      <div id="loading" class="loading">
+        <p>Loading performances...</p>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal for Add/Edit Performance -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modal-title">Add Performance</h2>
+        <button id="modal-close" class="btn-icon">&times;</button>
+      </div>
+      <form id="performance-form" class="performance-form">
+        <input type="hidden" id="form-id" name="id">
+
+        <div class="form-group">
+          <label for="form-title">Title *</label>
+          <input type="text" id="form-title" name="title" required>
+        </div>
+
+        <div class="form-group">
+          <label for="form-performer-name">Performer Name *</label>
+          <input type="text" id="form-performer-name" name="performerName" required>
+        </div>
+
+        <div class="form-group">
+          <label for="form-performer-pseudo">Stage Name (optional)</label>
+          <input type="text" id="form-performer-pseudo" name="performerPseudo">
+        </div>
+
+        <div class="form-group">
+          <label for="form-music-file">Music File (MP3, WAV, OGG)</label>
+          <input type="file" id="form-music-file" name="musicFile" accept=".mp3,.wav,.ogg,audio/*">
+          <p id="current-file" class="current-file"></p>
+        </div>
+
+        <div class="form-group form-row">
+          <div class="form-col">
+            <label for="form-offset-min">Start Offset (min)</label>
+            <input type="number" id="form-offset-min" name="startOffsetMinutes" min="0" value="0">
+          </div>
+          <div class="form-col">
+            <label for="form-offset-sec">Start Offset (sec)</label>
+            <input type="number" id="form-offset-sec" name="startOffsetSeconds" min="0" max="59" value="0">
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" id="form-cancel" class="btn btn-secondary">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Confirmation Modal -->
+  <div id="confirm-overlay" class="modal-overlay hidden">
+    <div class="modal modal-small">
+      <div class="modal-header">
+        <h2>Confirm Delete</h2>
+      </div>
+      <div class="modal-body">
+        <p id="confirm-message">Are you sure you want to delete this performance?</p>
+      </div>
+      <div class="form-actions">
+        <button id="confirm-cancel" class="btn btn-secondary">Cancel</button>
+        <button id="confirm-ok" class="btn btn-danger">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

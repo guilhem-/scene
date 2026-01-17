@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Data files (music uploads)
+data/*/
+
+# Keep the performances.json but ignore music folders
+!data/performances.json
+
+# Test coverage
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
