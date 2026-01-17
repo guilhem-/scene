@@ -51,3 +51,27 @@
   --font-size-xl: 1.5rem;
   --font-size-2xl: 2rem;
 }
+
+/* Dark/Night Mode */
+[data-theme="dark"] {
+  --color-primary: #818cf8;
+  --color-primary-hover: #6366f1;
+  --color-primary-light: #312e81;
+
+  --color-secondary: #94a3b8;
+  --color-secondary-hover: #64748b;
+
+  --color-danger: #f87171;
+  --color-danger-hover: #ef4444;
+
+  --color-success: #4ade80;
+  --color-warning: #fbbf24;
+
+  --color-bg: #0f172a;
+  --color-surface: #1e293b;
+  --color-border: #334155;
+
+  --color-text: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-text-muted: #64748b;
+}

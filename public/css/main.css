@@ -13,6 +13,28 @@ body {
   background-color: var(--color-bg);
   line-height: 1.5;
   min-height: 100vh;
+  position: relative;
+}
+
+/* Background image layer */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url('/assets/logo-caramanga.webp');
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: contain;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Invert background image in dark mode */
+[data-theme="dark"] body::before {
+  filter: invert(1);
 }
 
 /* Layout */
@@ -23,19 +45,82 @@ body {
 }
 
 .header {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-bottom: var(--space-xl);
+  padding: var(--space-md);
+  background-color: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
 }
 
-.header h1 {
-  font-size: var(--font-size-2xl);
+.header-logo {
+  width: 60px;
+  height: auto;
+}
+
+.header-title {
+  flex: 1;
+  margin-left: var(--space-md);
+}
+
+.header-title h1 {
+  font-size: var(--font-size-xl);
   color: var(--color-primary);
-  margin-bottom: var(--space-xs);
+  margin-bottom: 0;
 }
 
-.subtitle {
+.header-title .subtitle {
   color: var(--color-text-secondary);
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-sm);
+  margin: 0;
+}
+
+/* Theme Toggle */
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  cursor: pointer;
+}
+
+.theme-toggle input {
+  display: none;
+}
+
+.toggle-slider {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  background-color: var(--color-border);
+  border-radius: 24px;
+  transition: background-color var(--transition-fast);
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background-color: white;
+  border-radius: 50%;
+  transition: transform var(--transition-fast);
+}
+
+.theme-toggle input:checked + .toggle-slider {
+  background-color: var(--color-primary);
+}
+
+.theme-toggle input:checked + .toggle-slider::before {
+  transform: translateX(20px);
+}
+
+.toggle-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
 }
 
 .main {
@@ -359,6 +444,21 @@ body {
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
   margin-top: var(--space-xs);
+}
+
+/* Offset section - disabled state */
+.offset-section.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.offset-section.disabled label {
+  color: var(--color-text-muted);
+}
+
+.offset-section.disabled input {
+  background-color: var(--color-border);
+  cursor: not-allowed;
 }
 
 .form-actions {

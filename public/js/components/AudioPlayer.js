@@ -67,7 +67,7 @@ export class AudioPlayer {
   /**
    * Play audio with fade in
    */
-  play(offsetSeconds = 0) {
+  async play(offsetSeconds = 0) {
     if (!this.audioElement) return;
 
     this.initContext();
@@ -81,14 +81,33 @@ export class AudioPlayer {
     } else {
       // Start from offset
       this.startOffset = offsetSeconds;
-      this.audioElement.currentTime = offsetSeconds;
       this.gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
-      this.audioElement.play();
+
+      // Set currentTime and wait for seek to complete
+      if (offsetSeconds > 0) {
+        await this.seekTo(offsetSeconds);
+      }
+
+      await this.audioElement.play();
       this.fadeIn();
       this.isPlaying = true;
     }
 
     this.notifyStatus();
+  }
+
+  /**
+   * Seek to specific time and wait for completion
+   */
+  seekTo(timeSeconds) {
+    return new Promise((resolve) => {
+      const onSeeked = () => {
+        this.audioElement.removeEventListener('seeked', onSeeked);
+        resolve();
+      };
+      this.audioElement.addEventListener('seeked', onSeeked);
+      this.audioElement.currentTime = timeSeconds;
+    });
   }
 
   /**

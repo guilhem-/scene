@@ -123,8 +123,9 @@ export class PerformanceCard {
         await this.audioPlayer.load(getMusicUrl(this.performance.id));
       }
 
-      const offset = this.performance.startOffset.minutes * 60 + this.performance.startOffset.seconds;
-      this.audioPlayer.play(offset);
+      const offset = (this.performance.startOffset?.minutes || 0) * 60 +
+                     (this.performance.startOffset?.seconds || 0);
+      await this.audioPlayer.play(offset);
 
       if (this.onPlayStateChange) {
         this.onPlayStateChange(this.performance.id, true);

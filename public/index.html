@@ -10,8 +10,16 @@
 <body>
   <div id="app">
     <header class="header">
-      <h1>Scene</h1>
-      <p class="subtitle">Performance Manager</p>
+      <img src="/assets/logo-caramanga.webp" alt="Logo" class="header-logo">
+      <div class="header-title">
+        <h1>Scene</h1>
+        <p class="subtitle">Performance Manager</p>
+      </div>
+      <label class="theme-toggle">
+        <input type="checkbox" id="theme-toggle">
+        <span class="toggle-slider"></span>
+        <span class="toggle-label">Night</span>
+      </label>
     </header>
 
     <main class="main">
@@ -67,14 +75,14 @@
           <p id="current-file" class="current-file"></p>
         </div>
 
-        <div class="form-group form-row">
+        <div id="offset-section" class="form-group form-row offset-section disabled">
           <div class="form-col">
             <label for="form-offset-min">Start Offset (min)</label>
-            <input type="number" id="form-offset-min" name="startOffsetMinutes" min="0" value="0">
+            <input type="number" id="form-offset-min" name="startOffsetMinutes" min="0" value="0" disabled>
           </div>
           <div class="form-col">
             <label for="form-offset-sec">Start Offset (sec)</label>
-            <input type="number" id="form-offset-sec" name="startOffsetSeconds" min="0" max="59" value="0">
+            <input type="number" id="form-offset-sec" name="startOffsetSeconds" min="0" max="59" value="0" disabled>
           </div>
         </div>
 

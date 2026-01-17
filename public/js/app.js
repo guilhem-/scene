@@ -28,6 +28,9 @@ class App {
    * Initialize the application
    */
   async init() {
+    // Initialize theme
+    this.initTheme();
+
     // Initialize components
     this.performanceList = new PerformanceList('#performance-list');
     this.performanceForm = new PerformanceForm();
@@ -47,6 +50,32 @@ class App {
 
     // Load initial data
     await this.loadPerformances();
+  }
+
+  /**
+   * Initialize theme from localStorage
+   */
+  initTheme() {
+    const savedTheme = localStorage.getItem('theme');
+    const toggle = document.getElementById('theme-toggle');
+
+    if (savedTheme === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      if (toggle) toggle.checked = true;
+    }
+  }
+
+  /**
+   * Toggle between light and dark theme
+   */
+  toggleTheme(isDark) {
+    if (isDark) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+      localStorage.setItem('theme', 'light');
+    }
   }
 
   /**
@@ -95,6 +124,14 @@ class App {
     addBtn.addEventListener('click', () => {
       this.performanceForm.showCreate();
     });
+
+    // Theme toggle
+    const themeToggle = document.getElementById('theme-toggle');
+    if (themeToggle) {
+      themeToggle.addEventListener('change', (e) => {
+        this.toggleTheme(e.target.checked);
+      });
+    }
   }
 
   /**

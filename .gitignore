@@ -1,11 +1,8 @@
 # Dependencies
 node_modules/
 
-# Data files (music uploads)
-data/*/
-
-# Keep the performances.json but ignore music folders
-!data/performances.json
+# Data files (runtime data and music uploads)
+data/
 
 # Test coverage
 coverage/

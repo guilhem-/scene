@@ -271,6 +271,59 @@ describe('API Endpoints', () => {
     });
   });
 
+  describe('Static Assets', () => {
+    test('should serve background image from /assets/logo-caramanga.webp', async () => {
+      const res = await request(app).get('/assets/logo-caramanga.webp');
+
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toMatch(/image/);
+    });
+
+    test('should have logo image in header on index page', async () => {
+      const res = await request(app).get('/');
+
+      expect(res.status).toBe(200);
+      expect(res.text).toContain('class="header-logo"');
+      expect(res.text).toContain('src="/assets/logo-caramanga.webp"');
+    });
+
+    test('should have theme toggle switch in header', async () => {
+      const res = await request(app).get('/');
+
+      expect(res.status).toBe(200);
+      expect(res.text).toContain('id="theme-toggle"');
+      expect(res.text).toContain('class="theme-toggle"');
+      expect(res.text).toContain('class="toggle-slider"');
+    });
+
+    test('should have dark theme CSS variables defined', async () => {
+      const res = await request(app).get('/css/variables.css');
+
+      expect(res.status).toBe(200);
+      expect(res.text).toContain('[data-theme="dark"]');
+      expect(res.text).toContain('--color-bg: #0f172a');
+    });
+
+    test('should have offset fields disabled by default in form', async () => {
+      const res = await request(app).get('/');
+
+      expect(res.status).toBe(200);
+      expect(res.text).toContain('id="form-offset-min"');
+      expect(res.text).toContain('id="form-offset-sec"');
+      // Both should have disabled attribute
+      expect(res.text).toMatch(/id="form-offset-min"[^>]*disabled/);
+      expect(res.text).toMatch(/id="form-offset-sec"[^>]*disabled/);
+    });
+
+    test('should have offset section with disabled class', async () => {
+      const res = await request(app).get('/');
+
+      expect(res.status).toBe(200);
+      expect(res.text).toContain('id="offset-section"');
+      expect(res.text).toContain('offset-section disabled');
+    });
+  });
+
   describe('File Upload', () => {
     test('should create performance with music file', async () => {
       // Create a simple test audio file
