@@ -83,16 +83,20 @@ export class AudioPlayer {
       this.startOffset = offsetSeconds;
       this.gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
 
-      // Set currentTime and wait for seek to complete
+      // Start playback first, then seek (more reliable across browsers)
+      await this.audioElement.play();
+
+      // Seek to offset after playback has started
       if (offsetSeconds > 0) {
         await this.seekTo(offsetSeconds);
       }
 
-      await this.audioElement.play();
       this.fadeIn();
       this.isPlaying = true;
     }
 
+    // Small delay to ensure audio state is settled before notifying
+    await new Promise(resolve => setTimeout(resolve, 50));
     this.notifyStatus();
   }
 
@@ -101,10 +105,24 @@ export class AudioPlayer {
    */
   seekTo(timeSeconds) {
     return new Promise((resolve) => {
+      // If already at the target time, resolve immediately
+      if (Math.abs(this.audioElement.currentTime - timeSeconds) < 0.1) {
+        resolve();
+        return;
+      }
+
       const onSeeked = () => {
         this.audioElement.removeEventListener('seeked', onSeeked);
+        clearTimeout(timeout);
         resolve();
       };
+
+      // Timeout fallback in case 'seeked' event doesn't fire
+      const timeout = setTimeout(() => {
+        this.audioElement.removeEventListener('seeked', onSeeked);
+        resolve();
+      }, 1000);
+
       this.audioElement.addEventListener('seeked', onSeeked);
       this.audioElement.currentTime = timeSeconds;
     });
@@ -198,10 +216,16 @@ export class AudioPlayer {
    */
   notifyStatus() {
     if (this.onStatusChange) {
+      let currentTime = this.getCurrentTime();
+      // When playing with an offset, audioElement.currentTime may not have
+      // updated yet due to race condition. Report the offset in that case.
+      if (this.isPlaying && currentTime < this.startOffset) {
+        currentTime = this.startOffset;
+      }
       this.onStatusChange({
         isPlaying: this.isPlaying,
         isPaused: this.isPaused,
-        currentTime: this.getCurrentTime(),
+        currentTime: currentTime,
         duration: this.getDuration()
       });
     }
