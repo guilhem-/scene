@@ -24,3 +24,38 @@ Thumbs.db
 # Environment
 .env
 .env.local
+.env.*
+
+# Ansible/Infrastructure Secrets
+infra/vars/secrets.yml
+infra/vars/secrets.*.yml
+infra/vars/*.vault.yml
+*.vault.yml
+*.vault
+.vault_pass
+.vault_password
+ansible-vault-password*
+
+# SSH Keys
+*.pem
+*.key
+id_rsa
+id_ed25519
+*.pub
+
+# AWS Credentials
+.aws/
+credentials
+aws_credentials*
+
+# Ansible Runtime
+infra/backups/
+*.retry
+/tmp/ansible_facts_cache/
+
+# Terraform (if used in future)
+*.tfstate
+*.tfstate.*
+.terraform/
+terraform.tfvars
+*.auto.tfvars
