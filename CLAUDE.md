@@ -56,3 +56,4 @@ Server runs at http://localhost:3333
 - Supported audio formats: MP3, WAV, OGG
 - Max file upload: 50MB
 - do not mention Claude in branches, commit, pr...
+- prevent accidental leaking of secret/sensitive data. Adjust .gitignore consequently.
