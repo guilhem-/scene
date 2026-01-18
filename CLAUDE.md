@@ -55,3 +55,4 @@ Server runs at http://localhost:3333
 - Audio requires user interaction before playing (browser policy)
 - Supported audio formats: MP3, WAV, OGG
 - Max file upload: 50MB
+- do not mention Claude in branches, commit, pr...
