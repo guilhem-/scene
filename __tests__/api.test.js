@@ -319,8 +319,8 @@ describe('API Endpoints', () => {
       const res = await request(app).get('/');
 
       expect(res.status).toBe(200);
-      expect(res.text).toContain('id="offset-section"');
-      expect(res.text).toContain('offset-section disabled');
+      expect(res.text).toContain('id="time-section"');
+      expect(res.text).toContain('time-section disabled');
     });
   });
 

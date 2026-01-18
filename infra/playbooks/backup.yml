@@ -1,0 +1,72 @@
+---
+# Scene Performance Manager - Backup Playbook
+# Usage: ansible-playbook playbooks/backup.yml
+
+- name: Backup Scene Data
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  vars_files:
+    - ../vars/main.yml
+    - ../vars/secrets.yml
+
+  tasks:
+    - name: Find EC2 instance
+      amazon.aws.ec2_instance_info:
+        region: "{{ aws_region }}"
+        filters:
+          "tag:Name": "scene_server"
+          "instance-state-name": running
+      register: ec2_info
+
+    - name: Fail if no instance found
+      ansible.builtin.fail:
+        msg: "No running scene_server instance found"
+      when: ec2_info.instances | length == 0
+
+    - name: Set EC2 public IP
+      ansible.builtin.set_fact:
+        ec2_public_ip: "{{ ec2_info.instances[0].public_ip_address }}"
+
+    - name: Display backup source
+      ansible.builtin.debug:
+        msg: "Backing up data from: {{ ec2_public_ip }}"
+
+    - name: Create backup directory with timestamp
+      ansible.builtin.file:
+        path: "{{ backup_dir }}/{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}{{ ansible_date_time.minute }}"
+        state: directory
+        mode: "0755"
+
+    - name: Backup data directory from server
+      ansible.builtin.command: >
+        rsync -avz --progress
+        -e "ssh -i {{ ansible_ssh_private_key_file }} -o StrictHostKeyChecking=no"
+        ubuntu@{{ ec2_public_ip }}:{{ app_dir }}/data/
+        {{ backup_dir }}/{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}{{ ansible_date_time.minute }}/
+      register: backup_result
+
+    - name: Get backup size
+      ansible.builtin.command: du -sh {{ backup_dir }}/{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}{{ ansible_date_time.minute }}/
+      register: backup_size
+      changed_when: false
+
+    - name: Display backup summary
+      ansible.builtin.debug:
+        msg:
+          - "=========================================="
+          - "Backup Complete"
+          - "=========================================="
+          - "Source: ubuntu@{{ ec2_public_ip }}:{{ app_dir }}/data/"
+          - "Destination: {{ backup_dir }}/{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}{{ ansible_date_time.minute }}/"
+          - "Size: {{ backup_size.stdout }}"
+          - "=========================================="
+
+    - name: List backup contents
+      ansible.builtin.command: ls -la {{ backup_dir }}/{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}{{ ansible_date_time.minute }}/
+      register: backup_contents
+      changed_when: false
+
+    - name: Display backup contents
+      ansible.builtin.debug:
+        msg: "{{ backup_contents.stdout_lines }}"

@@ -1,0 +1,32 @@
+---
+# Application settings
+app_name: scene
+app_user: scene
+app_group: scene
+app_port: 3333
+app_dir: /opt/scene
+
+# Node.js settings
+nodejs_version: "20.x"
+
+# AWS settings
+aws_region: "{{ lookup('env', 'AWS_DEFAULT_REGION') | default('us-east-1', true) }}"
+ec2_instance_type: t3.small
+ec2_ami: ami-0c7217cdde317cfec  # Ubuntu 22.04 LTS us-east-1
+ec2_key_name: scene_server
+ec2_security_group: scene_sg
+
+# Nginx settings
+nginx_client_max_body_size: 55M
+
+# SSL/Domain settings (set in vars/secrets.yml or leave empty for IP-only access)
+domain_name: ""
+route53_zone_id: ""
+letsencrypt_email: ""
+
+# Backup settings
+backup_dir: "{{ playbook_dir }}/../backups"
+
+# SSH settings
+ansible_ssh_private_key_file: ~/.ssh/scene_server.pem
+ansible_user: ubuntu

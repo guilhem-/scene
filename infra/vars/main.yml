@@ -1,0 +1,38 @@
+---
+# Non-sensitive configuration variables
+
+# Application
+app_name: scene
+app_port: 3333
+app_dir: /opt/scene
+
+# AWS EC2
+aws_region: us-east-1
+ec2_instance_type: t3.small
+ec2_ami: ami-0c7217cdde317cfec  # Ubuntu 22.04 LTS (us-east-1)
+ec2_key_name: scene_server
+ec2_volume_size: 20  # GB
+
+# Node.js
+nodejs_version: "20.x"
+
+# Nginx
+nginx_client_max_body_size: 55M
+nginx_worker_connections: 1024
+
+# System
+app_user: scene
+app_group: scene
+
+# Firewall ports
+firewall_allowed_ports:
+  - 22    # SSH
+  - 80    # HTTP
+  - 443   # HTTPS
+
+# Tags for AWS resources
+aws_tags:
+  Name: scene_server
+  Project: scene
+  Environment: production
+  ManagedBy: ansible

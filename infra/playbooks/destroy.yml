@@ -1,0 +1,145 @@
+---
+# Scene Performance Manager - Destroy Playbook
+# Usage: ansible-playbook playbooks/destroy.yml --ask-vault-pass
+# WARNING: This will terminate your EC2 instance and delete associated resources!
+
+- name: Destroy Scene Infrastructure
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  vars_files:
+    - ../vars/main.yml
+    - ../vars/secrets.yml
+
+  vars_prompt:
+    - name: confirm_destroy
+      prompt: |
+
+        ╔═══════════════════════════════════════════════════════════════╗
+        ║                        ⚠️  WARNING ⚠️                          ║
+        ║                                                               ║
+        ║  This will PERMANENTLY DESTROY the following resources:       ║
+        ║                                                               ║
+        ║  • EC2 instance (scene_server)                                ║
+        ║  • Security group (scene_sg)                                  ║
+        ║  • Route53 DNS record (if configured)                         ║
+        ║                                                               ║
+        ║  Data will be backed up locally before destruction.           ║
+        ║                                                               ║
+        ╚═══════════════════════════════════════════════════════════════╝
+
+        Type 'DESTROY' to confirm
+      private: no
+
+  tasks:
+    - name: Validate confirmation
+      ansible.builtin.fail:
+        msg: "Destruction cancelled. You must type 'DESTROY' to confirm."
+      when: confirm_destroy != 'DESTROY'
+
+    - name: Find EC2 instance
+      amazon.aws.ec2_instance_info:
+        region: "{{ aws_region }}"
+        filters:
+          "tag:Name": "scene_server"
+          "instance-state-name":
+            - running
+            - stopped
+      register: ec2_info
+
+    - name: Set EC2 facts
+      ansible.builtin.set_fact:
+        ec2_instance_id: "{{ ec2_info.instances[0].instance_id | default('') }}"
+        ec2_public_ip: "{{ ec2_info.instances[0].public_ip_address | default('') }}"
+      when: ec2_info.instances | length > 0
+
+    - name: Display instance to be destroyed
+      ansible.builtin.debug:
+        msg: "Found instance: {{ ec2_instance_id }} ({{ ec2_public_ip }})"
+      when: ec2_instance_id | default('')
+
+    - name: No instance found
+      ansible.builtin.debug:
+        msg: "No running scene_server instance found. Skipping instance termination."
+      when: not (ec2_instance_id | default(''))
+
+    # Backup data before destruction
+    - name: Create local backup directory
+      ansible.builtin.file:
+        path: "{{ backup_dir }}/{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}{{ ansible_date_time.minute }}"
+        state: directory
+        mode: "0755"
+      delegate_to: localhost
+      when: ec2_public_ip | default('')
+
+    - name: Backup data from server
+      ansible.builtin.command: >
+        rsync -avz --progress
+        -e "ssh -i {{ ansible_ssh_private_key_file }} -o StrictHostKeyChecking=no"
+        ubuntu@{{ ec2_public_ip }}:{{ app_dir }}/data/
+        {{ backup_dir }}/{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}{{ ansible_date_time.minute }}/
+      delegate_to: localhost
+      when: ec2_public_ip | default('')
+      ignore_errors: yes
+      register: backup_result
+
+    - name: Display backup result
+      ansible.builtin.debug:
+        msg: "Data backed up to: {{ backup_dir }}/{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}{{ ansible_date_time.minute }}/"
+      when:
+        - ec2_public_ip | default('')
+        - backup_result.rc == 0 | default(false)
+
+    # Remove Route53 DNS record
+    - name: Remove Route53 A record
+      amazon.aws.route53:
+        state: absent
+        zone: "{{ route53_zone_id }}"
+        record: "{{ domain_name }}"
+        type: A
+        ttl: 300
+        value: "{{ ec2_public_ip }}"
+      when:
+        - domain_name | default('')
+        - route53_zone_id | default('')
+        - ec2_public_ip | default('')
+      ignore_errors: yes
+
+    # Terminate EC2 instance
+    - name: Terminate EC2 instance
+      amazon.aws.ec2_instance:
+        instance_ids: "{{ ec2_instance_id }}"
+        region: "{{ aws_region }}"
+        state: terminated
+        wait: yes
+      when: ec2_instance_id | default('')
+
+    - name: Wait for instance to terminate
+      amazon.aws.ec2_instance_info:
+        instance_ids: "{{ ec2_instance_id }}"
+        region: "{{ aws_region }}"
+      register: terminated_instance
+      until: terminated_instance.instances[0].state.name == 'terminated'
+      retries: 30
+      delay: 10
+      when: ec2_instance_id | default('')
+
+    # Delete security group
+    - name: Delete security group
+      amazon.aws.ec2_security_group:
+        name: "{{ ec2_security_group }}"
+        region: "{{ aws_region }}"
+        state: absent
+      ignore_errors: yes
+
+    - name: Display destruction summary
+      ansible.builtin.debug:
+        msg:
+          - "=========================================="
+          - "Scene Infrastructure Destroyed"
+          - "=========================================="
+          - "EC2 Instance: {{ 'Terminated' if ec2_instance_id | default('') else 'Not found' }}"
+          - "Security Group: Deleted"
+          - "DNS Record: {{ 'Removed' if domain_name | default('') else 'N/A' }}"
+          - "Backup: {{ backup_dir }}/{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}{{ ansible_date_time.minute }}/"
+          - "=========================================="

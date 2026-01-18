@@ -1,0 +1,22 @@
+---
+plugin: amazon.aws.aws_ec2
+
+regions:
+  - "{{ lookup('env', 'AWS_DEFAULT_REGION') | default('us-east-1', true) }}"
+
+filters:
+  tag:Name: scene_server
+  instance-state-name:
+    - running
+
+keyed_groups:
+  - key: tags.Name
+    prefix: tag_Name
+
+compose:
+  ansible_host: public_ip_address
+  ansible_user: ubuntu
+
+hostnames:
+  - tag:Name
+  - public-ip-address

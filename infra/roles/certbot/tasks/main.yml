@@ -1,0 +1,66 @@
+---
+- name: Skip certbot if no domain configured
+  ansible.builtin.debug:
+    msg: "Skipping SSL certificate - no domain configured"
+  when: not (domain_name | default(''))
+
+- name: Install certbot
+  ansible.builtin.apt:
+    name:
+      - certbot
+      - python3-certbot-nginx
+    state: present
+  when: domain_name | default('')
+
+- name: Create webroot directory for ACME challenges
+  ansible.builtin.file:
+    path: /var/www/certbot
+    state: directory
+    mode: "0755"
+  when: domain_name | default('')
+
+- name: Check if certificate exists
+  ansible.builtin.stat:
+    path: "/etc/letsencrypt/live/{{ domain_name }}/fullchain.pem"
+  register: cert_exists
+  when: domain_name | default('')
+
+- name: Obtain SSL certificate
+  ansible.builtin.command: >
+    certbot certonly
+    --nginx
+    --non-interactive
+    --agree-tos
+    --email {{ letsencrypt_email }}
+    --domain {{ domain_name }}
+  register: certbot_result
+  when:
+    - domain_name | default('')
+    - letsencrypt_email | default('')
+    - not cert_exists.stat.exists | default(true)
+  notify: Reload nginx
+
+- name: Display certbot result
+  ansible.builtin.debug:
+    msg: "{{ certbot_result.stdout_lines | default(['Certificate already exists']) }}"
+  when: domain_name | default('')
+
+- name: Setup automatic certificate renewal
+  ansible.builtin.cron:
+    name: "Certbot renewal"
+    minute: "0"
+    hour: "3"
+    day: "*"
+    month: "*"
+    weekday: "*"
+    job: "certbot renew --quiet --post-hook 'systemctl reload nginx'"
+  when: domain_name | default('')
+
+- name: Test certificate renewal
+  ansible.builtin.command: certbot renew --dry-run
+  register: renewal_test
+  changed_when: false
+  failed_when: false
+  when:
+    - domain_name | default('')
+    - cert_exists.stat.exists | default(false)

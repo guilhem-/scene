@@ -1,0 +1,32 @@
+[Unit]
+Description=Scene Performance Manager
+Documentation=https://github.com/yourusername/scene
+After=network.target
+
+[Service]
+Type=simple
+User={{ app_user }}
+Group={{ app_group }}
+WorkingDirectory={{ app_dir }}
+ExecStart=/usr/bin/node {{ app_dir }}/server/index.js
+Restart=always
+RestartSec=10
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier={{ app_name }}
+Environment=NODE_ENV=production
+Environment=PORT={{ app_port }}
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths={{ app_dir }}/data
+PrivateTmp=true
+
+# Resource limits
+LimitNOFILE=65535
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,75 @@
+---
+- name: Create application directory
+  ansible.builtin.file:
+    path: "{{ app_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
+
+- name: Create data directory
+  ansible.builtin.file:
+    path: "{{ app_dir }}/data"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
+
+- name: Synchronize application files
+  ansible.posix.synchronize:
+    src: "{{ playbook_dir }}/../../"
+    dest: "{{ app_dir }}/"
+    delete: yes
+    recursive: yes
+    rsync_opts:
+      - "--exclude=node_modules"
+      - "--exclude=.git"
+      - "--exclude=infra"
+      - "--exclude=.env"
+      - "--exclude=*.log"
+  notify: Restart scene service
+
+- name: Set ownership of application files
+  ansible.builtin.file:
+    path: "{{ app_dir }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    recurse: yes
+
+- name: Install npm dependencies
+  ansible.builtin.command:
+    cmd: npm ci --omit=dev
+    chdir: "{{ app_dir }}"
+  become: yes
+  become_user: "{{ app_user }}"
+  register: npm_install
+  changed_when: "'up to date' not in npm_install.stdout"
+
+- name: Create systemd service file
+  ansible.builtin.template:
+    src: scene.service.j2
+    dest: /etc/systemd/system/{{ app_name }}.service
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart scene service
+
+- name: Enable and start scene service
+  ansible.builtin.systemd:
+    name: "{{ app_name }}"
+    enabled: yes
+    state: started
+    daemon_reload: yes
+
+- name: Wait for application to be ready
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ app_port }}/api/performances"
+    status_code: 200
+  register: result
+  until: result.status == 200
+  retries: 30
+  delay: 2
+
+- name: Display application status
+  ansible.builtin.debug:
+    msg: "Application is running on port {{ app_port }}"

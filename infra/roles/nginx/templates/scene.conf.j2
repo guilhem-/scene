@@ -1,0 +1,136 @@
+# Upstream application
+upstream {{ app_name }}_backend {
+    server 127.0.0.1:{{ app_port }};
+    keepalive 32;
+}
+
+{% if domain_name | default('') %}
+# Redirect HTTP to HTTPS
+server {
+    listen 80;
+    listen [::]:80;
+    server_name {{ domain_name }};
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$server_name$request_uri;
+    }
+}
+
+# HTTPS server
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name {{ domain_name }};
+
+    # SSL certificates (managed by certbot)
+    ssl_certificate /etc/letsencrypt/live/{{ domain_name }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ domain_name }}/privkey.pem;
+    ssl_trusted_certificate /etc/letsencrypt/live/{{ domain_name }}/chain.pem;
+
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    # Proxy settings
+    location / {
+        limit_req zone=general burst=20 nodelay;
+
+        proxy_pass http://{{ app_name }}_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 300s;
+        proxy_connect_timeout 75s;
+    }
+
+    # Upload endpoint with separate rate limit
+    location /api/upload {
+        limit_req zone=upload burst=5 nodelay;
+
+        client_max_body_size {{ nginx_client_max_body_size | default('55M') }};
+
+        proxy_pass http://{{ app_name }}_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 300s;
+        proxy_connect_timeout 75s;
+    }
+
+    # Static files caching
+    location ~* \.(css|js|jpg|jpeg|png|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        proxy_pass http://{{ app_name }}_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        expires 7d;
+        add_header Cache-Control "public, immutable";
+    }
+}
+{% else %}
+# HTTP only server (no domain configured)
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+
+    # Proxy settings
+    location / {
+        limit_req zone=general burst=20 nodelay;
+
+        proxy_pass http://{{ app_name }}_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 300s;
+        proxy_connect_timeout 75s;
+    }
+
+    # Upload endpoint with separate rate limit
+    location /api/upload {
+        limit_req zone=upload burst=5 nodelay;
+
+        client_max_body_size {{ nginx_client_max_body_size | default('55M') }};
+
+        proxy_pass http://{{ app_name }}_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 300s;
+        proxy_connect_timeout 75s;
+    }
+
+    # Static files caching
+    location ~* \.(css|js|jpg|jpeg|png|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        proxy_pass http://{{ app_name }}_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        expires 7d;
+        add_header Cache-Control "public, immutable";
+    }
+}
+{% endif %}

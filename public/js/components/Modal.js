@@ -3,13 +3,14 @@
  */
 
 export class Modal {
-  constructor(overlayId) {
+  constructor(overlayId, options = {}) {
     this.overlay = document.getElementById(overlayId);
     this.onClose = null;
+    this.closeOnOverlayClick = options.closeOnOverlayClick !== false;
 
-    // Close on overlay click
+    // Close on overlay click (if enabled)
     this.overlay.addEventListener('click', (e) => {
-      if (e.target === this.overlay) {
+      if (e.target === this.overlay && this.closeOnOverlayClick) {
         this.hide();
       }
     });

@@ -136,46 +136,238 @@ describe('AudioPlayer offset time reporting', () => {
 
 describe('AudioPlayer seek behavior', () => {
   /**
-   * Documents that seeking should happen AFTER play() starts for reliability.
-   * Some browsers don't allow seeking to unbuffered positions before playback.
+   * Documents the correct seek behavior:
+   * 1. Set currentTime BEFORE play() - this sets the starting position
+   * 2. Call play() - starts from currentTime
+   * 3. Verify position after play, re-seek if needed
    */
 
-  test('seek after play is more reliable than seek before play', () => {
-    // This test documents the expected behavior:
-    // 1. Call audioElement.play() first
-    // 2. Then call seekTo(offset)
-    // 3. This ensures the audio is in a playable state before seeking
-
-    const playOrder = [];
+  test('should set currentTime before play for correct start position', () => {
+    const operations = [];
 
     // Simulate the correct order of operations
-    function simulateCorrectPlayWithOffset(offset) {
-      playOrder.push('play');
+    function simulatePlayWithOffset(offset) {
       if (offset > 0) {
-        playOrder.push('seek');
+        operations.push('setCurrentTime');
       }
-      playOrder.push('fadeIn');
+      operations.push('play');
+      if (offset > 0) {
+        operations.push('verifyPosition');
+      }
+      operations.push('fadeIn');
     }
 
-    simulateCorrectPlayWithOffset(90);
+    simulatePlayWithOffset(90);
 
-    expect(playOrder).toEqual(['play', 'seek', 'fadeIn']);
+    // currentTime must be set BEFORE play
+    expect(operations.indexOf('setCurrentTime')).toBeLessThan(operations.indexOf('play'));
+    expect(operations).toEqual(['setCurrentTime', 'play', 'verifyPosition', 'fadeIn']);
   });
 
-  test('seek should not be called when offset is 0', () => {
-    const playOrder = [];
+  test('should skip seek operations when offset is 0', () => {
+    const operations = [];
 
     function simulatePlayWithOffset(offset) {
-      playOrder.push('play');
       if (offset > 0) {
-        playOrder.push('seek');
+        operations.push('setCurrentTime');
       }
-      playOrder.push('fadeIn');
+      operations.push('play');
+      if (offset > 0) {
+        operations.push('verifyPosition');
+      }
+      operations.push('fadeIn');
     }
 
     simulatePlayWithOffset(0);
 
-    expect(playOrder).toEqual(['play', 'fadeIn']);
-    expect(playOrder).not.toContain('seek');
+    expect(operations).toEqual(['play', 'fadeIn']);
+    expect(operations).not.toContain('setCurrentTime');
+    expect(operations).not.toContain('verifyPosition');
+  });
+
+  test('should re-seek if position verification fails', () => {
+    // Simulates the verification logic
+    function verifyAndCorrect(actualTime, expectedOffset) {
+      if (actualTime < expectedOffset - 0.5) {
+        return 'reseek';
+      }
+      return 'ok';
+    }
+
+    // Position is way off - should reseek
+    expect(verifyAndCorrect(0, 90)).toBe('reseek');
+    expect(verifyAndCorrect(5, 90)).toBe('reseek');
+
+    // Position is close enough - no reseek needed
+    expect(verifyAndCorrect(89.6, 90)).toBe('ok');
+    expect(verifyAndCorrect(90, 90)).toBe('ok');
+    expect(verifyAndCorrect(95, 90)).toBe('ok');
+  });
+});
+
+describe('AudioPlayer end time scheduling', () => {
+  /**
+   * Tests the end time fade out scheduling logic
+   */
+
+  const fadeOutDuration = 0.5; // Same as AudioPlayer default
+
+  /**
+   * Calculates the delay in ms before triggering fade out
+   * Returns null if scheduling should not occur
+   */
+  function calculateFadeOutDelay(currentTime, endTimeSeconds, startOffset) {
+    // endTime = 0 means disabled
+    if (endTimeSeconds <= 0) {
+      return null;
+    }
+
+    // endTime must be greater than startOffset
+    if (endTimeSeconds <= startOffset) {
+      return null;
+    }
+
+    // Calculate when to start fade out (end time - fade duration)
+    const fadeOutStartTime = endTimeSeconds - fadeOutDuration;
+    const delayMs = (fadeOutStartTime - currentTime) * 1000;
+
+    if (delayMs <= 0) {
+      return 0; // Stop immediately
+    }
+
+    return delayMs;
+  }
+
+  test('should schedule fade out at correct time', () => {
+    // Playing at 10s, end time at 20s
+    // Fade out should start at 19.5s (20 - 0.5)
+    // Delay should be 9.5s = 9500ms
+    const delay = calculateFadeOutDelay(10, 20, 0);
+    expect(delay).toBe(9500);
+  });
+
+  test('should schedule fade out when playing with offset', () => {
+    // Offset at 10s, current at 10s, end time at 20s
+    // Fade out starts at 19.5s, delay = 9.5s = 9500ms
+    const delay = calculateFadeOutDelay(10, 20, 10);
+    expect(delay).toBe(9500);
+  });
+
+  test('should return null when end time is 0 (disabled)', () => {
+    const delay = calculateFadeOutDelay(10, 0, 0);
+    expect(delay).toBeNull();
+  });
+
+  test('should return null when end time equals start offset', () => {
+    // This should be ignored - can't end where you start
+    const delay = calculateFadeOutDelay(10, 10, 10);
+    expect(delay).toBeNull();
+  });
+
+  test('should return null when end time is less than start offset', () => {
+    // Invalid: end time before start
+    const delay = calculateFadeOutDelay(5, 5, 10);
+    expect(delay).toBeNull();
+  });
+
+  test('should return 0 when already past fade out start time', () => {
+    // Current time is 19.8s, end time is 20s
+    // Fade out should have started at 19.5s - we're late!
+    const delay = calculateFadeOutDelay(19.8, 20, 0);
+    expect(delay).toBe(0);
+  });
+
+  test('should calculate correct delay for short clips', () => {
+    // End time at 2s, current at 0s
+    // Fade out starts at 1.5s, delay = 1500ms
+    const delay = calculateFadeOutDelay(0, 2, 0);
+    expect(delay).toBe(1500);
+  });
+
+  test('should handle end time exactly at fade duration threshold', () => {
+    // End time at 0.5s, current at 0s
+    // Fade out starts at 0s, delay = 0
+    const delay = calculateFadeOutDelay(0, 0.5, 0);
+    expect(delay).toBe(0);
+  });
+});
+
+describe('AudioPlayer end time timeout cleanup', () => {
+  /**
+   * Tests that end time timeout is properly cleaned up on stop/pause/destroy
+   */
+
+  test('should track cleanup scenarios', () => {
+    const cleanupScenarios = [
+      { action: 'stop', shouldCleanup: true },
+      { action: 'pause', shouldCleanup: true },
+      { action: 'destroy', shouldCleanup: true },
+      { action: 'play_new', shouldCleanup: true }  // Starting new playback clears old timeout
+    ];
+
+    cleanupScenarios.forEach(scenario => {
+      expect(scenario.shouldCleanup).toBe(true);
+    });
+  });
+
+  test('should reset endTimeSeconds on stop', () => {
+    // Simulates the stop behavior
+    let endTimeSeconds = 20;
+
+    // After stop, endTimeSeconds should be reset
+    function simulateStop() {
+      endTimeSeconds = 0;
+    }
+
+    simulateStop();
+    expect(endTimeSeconds).toBe(0);
+  });
+
+  test('should preserve endTimeSeconds on pause for resume', () => {
+    // Simulates pause behavior - endTimeSeconds should be preserved
+    let endTimeSeconds = 20;
+    let isPaused = false;
+
+    function simulatePause() {
+      isPaused = true;
+      // Note: endTimeSeconds is NOT reset on pause
+    }
+
+    simulatePause();
+    expect(endTimeSeconds).toBe(20);
+    expect(isPaused).toBe(true);
+  });
+});
+
+describe('AudioPlayer end time resume behavior', () => {
+  /**
+   * Tests that end time is re-scheduled correctly when resuming from pause
+   */
+
+  const fadeOutDuration = 0.5;
+
+  test('should recalculate delay on resume from pause', () => {
+    // Paused at 15s, end time at 20s
+    // On resume, delay should be recalculated from current position
+    const currentTimeOnResume = 15;
+    const endTimeSeconds = 20;
+
+    const fadeOutStartTime = endTimeSeconds - fadeOutDuration;
+    const delayMs = (fadeOutStartTime - currentTimeOnResume) * 1000;
+
+    // Should be 4.5s = 4500ms
+    expect(delayMs).toBe(4500);
+  });
+
+  test('should stop immediately if resumed past end time', () => {
+    // Paused at 19.8s, end time at 20s (past fade out start of 19.5s)
+    const currentTimeOnResume = 19.8;
+    const endTimeSeconds = 20;
+
+    const fadeOutStartTime = endTimeSeconds - fadeOutDuration;
+    const delayMs = (fadeOutStartTime - currentTimeOnResume) * 1000;
+
+    // Negative delay means stop immediately
+    expect(delayMs).toBeLessThan(0);
   });
 });

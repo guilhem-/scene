@@ -1,0 +1,58 @@
+---
+- name: Install dependencies for NodeSource
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+    state: present
+
+- name: Create keyrings directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Download NodeSource GPG key
+  ansible.builtin.shell: |
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+  args:
+    creates: /etc/apt/keyrings/nodesource.gpg
+
+- name: Set permissions on GPG key
+  ansible.builtin.file:
+    path: /etc/apt/keyrings/nodesource.gpg
+    mode: "0644"
+
+- name: Add NodeSource repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_{{ nodejs_version | regex_replace('\\.x$', '') }}.x nodistro main"
+    state: present
+    filename: nodesource
+
+- name: Update apt cache after adding NodeSource
+  ansible.builtin.apt:
+    update_cache: yes
+
+- name: Install Node.js
+  ansible.builtin.apt:
+    name: nodejs
+    state: present
+
+- name: Verify Node.js installation
+  ansible.builtin.command: node --version
+  register: node_version
+  changed_when: false
+
+- name: Display Node.js version
+  ansible.builtin.debug:
+    msg: "Node.js version: {{ node_version.stdout }}"
+
+- name: Verify npm installation
+  ansible.builtin.command: npm --version
+  register: npm_version
+  changed_when: false
+
+- name: Display npm version
+  ansible.builtin.debug:
+    msg: "npm version: {{ npm_version.stdout }}"

@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Scene - Performance Manager</title>
+  <title>Scene - Gestionnaire de Performances</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="stylesheet" href="/css/variables.css">
   <link rel="stylesheet" href="/css/main.css">
 </head>
@@ -13,19 +14,23 @@
       <img src="/assets/logo-caramanga.webp" alt="Logo" class="header-logo">
       <div class="header-title">
         <h1>Scene</h1>
-        <p class="subtitle">Performance Manager</p>
+        <p class="subtitle">Gestionnaire de Performances</p>
       </div>
-      <label class="theme-toggle">
-        <input type="checkbox" id="theme-toggle">
-        <span class="toggle-slider"></span>
-        <span class="toggle-label">Night</span>
-      </label>
+      <div class="header-actions">
+        <span id="end-time-badge" class="end-time-badge" title="Heure de fin estimée du spectacle">Fin --:--</span>
+        <button id="show-history-btn" class="btn btn-secondary btn-sm">Historique</button>
+        <label class="theme-toggle">
+          <input type="checkbox" id="theme-toggle">
+          <span class="toggle-slider"></span>
+          <span class="toggle-label">Nuit</span>
+        </label>
+      </div>
     </header>
 
     <main class="main">
       <div class="toolbar">
         <button id="add-performance-btn" class="btn btn-primary">
-          + Add Performance
+          + Ajouter une performance
         </button>
       </div>
 
@@ -34,12 +39,12 @@
       </div>
 
       <div id="empty-state" class="empty-state hidden">
-        <p>No performances yet.</p>
-        <p>Click "Add Performance" to get started.</p>
+        <p>Aucune performance pour le moment.</p>
+        <p>Cliquez sur "Ajouter une performance" pour commencer.</p>
       </div>
 
       <div id="loading" class="loading">
-        <p>Loading performances...</p>
+        <p>Chargement des performances...</p>
       </div>
     </main>
   </div>
@@ -48,47 +53,72 @@
   <div id="modal-overlay" class="modal-overlay hidden">
     <div class="modal">
       <div class="modal-header">
-        <h2 id="modal-title">Add Performance</h2>
+        <h2 id="modal-title">Ajouter une performance</h2>
         <button id="modal-close" class="btn-icon">&times;</button>
       </div>
       <form id="performance-form" class="performance-form">
         <input type="hidden" id="form-id" name="id">
 
         <div class="form-group">
-          <label for="form-title">Title *</label>
+          <label for="form-title">Titre *</label>
           <input type="text" id="form-title" name="title" required>
         </div>
 
         <div class="form-group">
-          <label for="form-performer-name">Performer Name *</label>
+          <label for="form-performer-name">Nom de l'artiste *</label>
           <input type="text" id="form-performer-name" name="performerName" required>
         </div>
 
         <div class="form-group">
-          <label for="form-performer-pseudo">Stage Name (optional)</label>
+          <label for="form-performer-pseudo">Nom de scène (optionnel)</label>
           <input type="text" id="form-performer-pseudo" name="performerPseudo">
         </div>
 
         <div class="form-group">
-          <label for="form-music-file">Music File (MP3, WAV, OGG)</label>
-          <input type="file" id="form-music-file" name="musicFile" accept=".mp3,.wav,.ogg,audio/*">
-          <p id="current-file" class="current-file"></p>
+          <label for="form-music-file">Fichier musical (MP3, WAV, OGG)</label>
+          <div id="existing-file-section" class="existing-file-section hidden">
+            <div class="existing-file-info">
+              <span class="file-icon">&#9835;</span>
+              <span id="existing-file-name" class="existing-file-name"></span>
+            </div>
+            <button type="button" id="change-file-btn" class="btn btn-sm btn-secondary">Changer</button>
+          </div>
+          <div id="file-input-section">
+            <input type="file" id="form-music-file" name="musicFile" accept=".mp3,.wav,.ogg,audio/*">
+            <p id="current-file" class="current-file"></p>
+          </div>
         </div>
 
-        <div id="offset-section" class="form-group form-row offset-section disabled">
-          <div class="form-col">
-            <label for="form-offset-min">Start Offset (min)</label>
-            <input type="number" id="form-offset-min" name="startOffsetMinutes" min="0" value="0" disabled>
+        <div id="time-section" class="form-group time-section disabled">
+          <div class="time-row">
+            <label class="time-label">Début</label>
+            <div class="time-inputs">
+              <input type="number" id="form-offset-min" name="startOffsetMinutes" min="0" value="0" disabled placeholder="min">
+              <span class="time-sep">:</span>
+              <input type="number" id="form-offset-sec" name="startOffsetSeconds" min="0" max="59" value="0" disabled placeholder="sec">
+            </div>
+            <label class="time-label">Fin</label>
+            <div class="time-inputs">
+              <input type="number" id="form-end-time-min" name="endTimeMinutes" min="0" value="0" disabled placeholder="min">
+              <span class="time-sep">:</span>
+              <input type="number" id="form-end-time-sec" name="endTimeSeconds" min="0" max="59" value="0" disabled placeholder="sec">
+            </div>
           </div>
-          <div class="form-col">
-            <label for="form-offset-sec">Start Offset (sec)</label>
-            <input type="number" id="form-offset-sec" name="startOffsetSeconds" min="0" max="59" value="0" disabled>
+          <div class="fade-row">
+            <label class="checkbox-label">
+              <input type="checkbox" id="form-fade-in" name="fadeIn" checked disabled>
+              <span>Fade in</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="form-fade-out" name="fadeOut" checked disabled>
+              <span>Fade out</span>
+            </label>
           </div>
         </div>
 
         <div class="form-actions">
-          <button type="button" id="form-cancel" class="btn btn-secondary">Cancel</button>
-          <button type="submit" class="btn btn-primary">Save</button>
+          <button type="button" id="form-cancel" class="btn btn-secondary">Annuler</button>
+          <button type="submit" class="btn btn-primary">Enregistrer</button>
         </div>
       </form>
     </div>
@@ -98,14 +128,33 @@
   <div id="confirm-overlay" class="modal-overlay hidden">
     <div class="modal modal-small">
       <div class="modal-header">
-        <h2>Confirm Delete</h2>
+        <h2>Confirmer la suppression</h2>
       </div>
       <div class="modal-body">
-        <p id="confirm-message">Are you sure you want to delete this performance?</p>
+        <p id="confirm-message">Êtes-vous sûr de vouloir supprimer cette performance ?</p>
       </div>
       <div class="form-actions">
-        <button id="confirm-cancel" class="btn btn-secondary">Cancel</button>
-        <button id="confirm-ok" class="btn btn-danger">Delete</button>
+        <button id="confirm-cancel" class="btn btn-secondary">Annuler</button>
+        <button id="confirm-ok" class="btn btn-danger">Supprimer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- History Modal -->
+  <div id="history-overlay" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Historique des performances</h2>
+        <button id="history-close" class="btn-icon">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="history-content" class="history-content">
+          <pre id="history-text" class="history-text"></pre>
+          <button id="history-copy" class="btn btn-primary btn-copy">Copier</button>
+        </div>
+        <div id="history-empty" class="history-empty hidden">
+          <p>Aucune performance terminée.</p>
+        </div>
       </div>
     </div>
   </div>

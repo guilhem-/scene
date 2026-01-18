@@ -1,0 +1,97 @@
+---
+# Scene Performance Manager - Application Update Playbook
+# Usage: ansible-playbook playbooks/update.yml
+# This playbook updates the application without reprovisioning the server
+
+- name: Update Scene Application
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - ../vars/main.yml
+    - ../vars/secrets.yml
+
+  tasks:
+    - name: Refresh dynamic inventory
+      amazon.aws.ec2_instance_info:
+        region: "{{ aws_region }}"
+        filters:
+          "tag:Name": "scene_server"
+          "instance-state-name": running
+      register: ec2_info
+
+    - name: Fail if no instance found
+      ansible.builtin.fail:
+        msg: "No running scene_server instance found. Run deploy.yml first."
+      when: ec2_info.instances | length == 0
+
+    - name: Add instance to inventory
+      ansible.builtin.add_host:
+        hostname: "{{ ec2_info.instances[0].public_ip_address }}"
+        groupname: scene_servers
+        ansible_user: ubuntu
+        ansible_ssh_private_key_file: "{{ ansible_ssh_private_key_file }}"
+
+- name: Deploy Application Update
+  hosts: scene_servers
+  become: yes
+  gather_facts: yes
+  vars_files:
+    - ../vars/main.yml
+    - ../vars/secrets.yml
+
+  tasks:
+    - name: Synchronize application files
+      ansible.posix.synchronize:
+        src: "{{ playbook_dir }}/../../"
+        dest: "{{ app_dir }}/"
+        delete: yes
+        recursive: yes
+        rsync_opts:
+          - "--exclude=node_modules"
+          - "--exclude=.git"
+          - "--exclude=infra"
+          - "--exclude=.env"
+          - "--exclude=*.log"
+          - "--exclude=data"
+
+    - name: Set ownership of application files
+      ansible.builtin.file:
+        path: "{{ app_dir }}"
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        recurse: yes
+
+    - name: Install npm dependencies
+      ansible.builtin.command:
+        cmd: npm ci --omit=dev
+        chdir: "{{ app_dir }}"
+      become: yes
+      become_user: "{{ app_user }}"
+      register: npm_install
+      changed_when: "'up to date' not in npm_install.stdout"
+
+    - name: Restart scene service
+      ansible.builtin.systemd:
+        name: "{{ app_name }}"
+        state: restarted
+
+    - name: Wait for application to be ready
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ app_port }}/api/performances"
+        status_code: 200
+      register: result
+      until: result.status == 200
+      retries: 30
+      delay: 2
+
+    - name: Display update summary
+      ansible.builtin.debug:
+        msg:
+          - "=========================================="
+          - "Application Updated Successfully"
+          - "=========================================="
+          - "Server: {{ ansible_host }}"
+          - "Application URL: http://{{ ansible_host }}"
+          - "{% if domain_name | default('') %}Domain: https://{{ domain_name }}{% endif %}"
+          - "=========================================="

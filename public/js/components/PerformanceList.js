@@ -16,6 +16,7 @@ export class PerformanceList {
     this.onEdit = null;
     this.onDelete = null;
     this.onToggleOver = null;
+    this.onDurationLoaded = null;
   }
 
   /**
@@ -47,12 +48,16 @@ export class PerformanceList {
     this.container.classList.remove('hidden');
 
     // Render each card
-    performances.forEach(performance => {
+    performances.forEach((performance, index) => {
       const card = new PerformanceCard(performance, {
+        position: index + 1,
         onEdit: this.onEdit,
         onDelete: this.onDelete,
         onToggleOver: this.onToggleOver,
-        onPlayStateChange: (id, isPlaying) => this.handlePlayStateChange(id, isPlaying)
+        onPlayStateChange: (id, isPlaying) => this.handlePlayStateChange(id, isPlaying),
+        onDurationLoaded: (id, duration) => {
+          if (this.onDurationLoaded) this.onDurationLoaded(id, duration);
+        }
       });
 
       const element = card.render();
@@ -91,5 +96,14 @@ export class PerformanceList {
   stopAllPlayback() {
     this.cards.forEach(card => card.stopPlayback());
     this.currentlyPlayingId = null;
+  }
+
+  /**
+   * Get playback info from the currently playing card
+   */
+  getCurrentPlaybackInfo() {
+    if (!this.currentlyPlayingId) return null;
+    const card = this.cards.get(this.currentlyPlayingId);
+    return card ? card.getPlaybackInfo() : null;
   }
 }

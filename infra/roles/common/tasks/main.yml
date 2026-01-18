@@ -1,0 +1,102 @@
+---
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install common packages
+  ansible.builtin.apt:
+    name:
+      - curl
+      - wget
+      - git
+      - htop
+      - vim
+      - unzip
+      - rsync
+      - ufw
+      - fail2ban
+      - logrotate
+    state: present
+
+- name: Create application group
+  ansible.builtin.group:
+    name: "{{ app_group }}"
+    state: present
+
+- name: Create application user
+  ansible.builtin.user:
+    name: "{{ app_user }}"
+    group: "{{ app_group }}"
+    shell: /bin/bash
+    home: "/home/{{ app_user }}"
+    create_home: yes
+    system: yes
+
+- name: Create application directory
+  ansible.builtin.file:
+    path: "{{ app_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
+
+- name: Configure UFW - Reset to defaults
+  community.general.ufw:
+    state: reset
+
+- name: Configure UFW - Default deny incoming
+  community.general.ufw:
+    direction: incoming
+    policy: deny
+
+- name: Configure UFW - Default allow outgoing
+  community.general.ufw:
+    direction: outgoing
+    policy: allow
+
+- name: Configure UFW - Allow SSH
+  community.general.ufw:
+    rule: allow
+    port: "22"
+    proto: tcp
+
+- name: Configure UFW - Allow HTTP
+  community.general.ufw:
+    rule: allow
+    port: "80"
+    proto: tcp
+
+- name: Configure UFW - Allow HTTPS
+  community.general.ufw:
+    rule: allow
+    port: "443"
+    proto: tcp
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled
+
+- name: Configure fail2ban for SSH
+  ansible.builtin.copy:
+    dest: /etc/fail2ban/jail.local
+    content: |
+      [sshd]
+      enabled = true
+      port = ssh
+      filter = sshd
+      logpath = /var/log/auth.log
+      maxretry = 5
+      bantime = 3600
+    mode: "0644"
+  notify: Restart fail2ban
+
+- name: Enable and start fail2ban
+  ansible.builtin.systemd:
+    name: fail2ban
+    enabled: yes
+    state: started
+
+- name: Set timezone to UTC
+  community.general.timezone:
+    name: UTC

@@ -15,9 +15,13 @@ export class AudioPlayer {
     this.startTime = 0;
     this.pauseTime = 0;
     this.startOffset = 0;
+    this.endTimeSeconds = 0;
+    this.endTimeTimeoutId = null;
 
     this.fadeInDuration = 1.0; // seconds
     this.fadeOutDuration = 0.5; // seconds
+    this.useFadeIn = true;
+    this.useFadeOut = true;
 
     this.onStatusChange = null;
   }
@@ -66,11 +70,23 @@ export class AudioPlayer {
 
   /**
    * Play audio with fade in
+   * @param {number} offsetSeconds - Start position in seconds
+   * @param {number} endTimeSeconds - End time in seconds (0 = play until end)
+   * @param {Object} options - Playback options
+   * @param {boolean} options.fadeIn - Whether to use fade in (default: true)
+   * @param {boolean} options.fadeOut - Whether to use fade out (default: true)
    */
-  async play(offsetSeconds = 0) {
+  async play(offsetSeconds = 0, endTimeSeconds = 0, options = {}) {
     if (!this.audioElement) return;
 
     this.initContext();
+
+    // Clear any existing end time timeout
+    this.clearEndTimeTimeout();
+
+    // Store fade options
+    this.useFadeIn = options.fadeIn !== false;
+    this.useFadeOut = options.fadeOut !== false;
 
     if (this.isPaused) {
       // Resume from pause position
@@ -78,26 +94,89 @@ export class AudioPlayer {
       this.fadeIn();
       this.isPaused = false;
       this.isPlaying = true;
+
+      // Re-schedule end time if set
+      if (this.endTimeSeconds > 0) {
+        this.scheduleEndTime();
+      }
     } else {
       // Start from offset
       this.startOffset = offsetSeconds;
-      this.gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+      this.endTimeSeconds = endTimeSeconds;
 
-      // Start playback first, then seek (more reliable across browsers)
+      // Set initial gain based on fade in option
+      if (this.useFadeIn) {
+        this.gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+      } else {
+        this.gainNode.gain.setValueAtTime(1, this.audioContext.currentTime);
+      }
+
+      // Set position BEFORE playing - this tells the audio element where to start
+      if (offsetSeconds > 0) {
+        this.audioElement.currentTime = offsetSeconds;
+      }
+
+      // Start playback from currentTime position
       await this.audioElement.play();
 
-      // Seek to offset after playback has started
+      // Verify position after play starts - some browsers need a re-seek
       if (offsetSeconds > 0) {
-        await this.seekTo(offsetSeconds);
+        // Give the browser a moment to stabilize
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        // If position is wrong, force re-seek
+        if (this.audioElement.currentTime < offsetSeconds - 0.5) {
+          this.audioElement.currentTime = offsetSeconds;
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
       }
 
       this.fadeIn();
       this.isPlaying = true;
+
+      // Schedule automatic stop at end time
+      if (endTimeSeconds > 0 && endTimeSeconds > offsetSeconds) {
+        this.scheduleEndTime();
+      }
     }
 
     // Small delay to ensure audio state is settled before notifying
     await new Promise(resolve => setTimeout(resolve, 50));
     this.notifyStatus();
+  }
+
+  /**
+   * Schedule automatic fade out and stop at end time
+   */
+  scheduleEndTime() {
+    if (this.endTimeSeconds <= 0) return;
+
+    const currentTime = this.audioElement.currentTime;
+    // Calculate when to trigger stop (account for fade out duration if enabled)
+    const stopTriggerTime = this.useFadeOut
+      ? this.endTimeSeconds - this.fadeOutDuration
+      : this.endTimeSeconds;
+    const delayMs = (stopTriggerTime - currentTime) * 1000;
+
+    if (delayMs <= 0) {
+      // Already past trigger time, stop immediately
+      this.stop();
+      return;
+    }
+
+    this.endTimeTimeoutId = setTimeout(() => {
+      this.stop();
+    }, delayMs);
+  }
+
+  /**
+   * Clear end time timeout
+   */
+  clearEndTimeTimeout() {
+    if (this.endTimeTimeoutId) {
+      clearTimeout(this.endTimeTimeoutId);
+      this.endTimeTimeoutId = null;
+    }
   }
 
   /**
@@ -134,6 +213,9 @@ export class AudioPlayer {
   async pause() {
     if (!this.isPlaying || !this.audioElement) return;
 
+    // Clear end time timeout on pause
+    this.clearEndTimeTimeout();
+
     await this.fadeOut();
     this.audioElement.pause();
     this.isPaused = true;
@@ -147,6 +229,9 @@ export class AudioPlayer {
   async stop(immediate = false) {
     if (!this.audioElement) return;
 
+    // Clear end time timeout on stop
+    this.clearEndTimeTimeout();
+
     if (!immediate && this.isPlaying) {
       await this.fadeOut();
     }
@@ -155,6 +240,7 @@ export class AudioPlayer {
     this.audioElement.currentTime = 0;
     this.isPlaying = false;
     this.isPaused = false;
+    this.endTimeSeconds = 0;
 
     // Reset gain
     if (this.gainNode) {
@@ -172,8 +258,13 @@ export class AudioPlayer {
 
     const now = this.audioContext.currentTime;
     this.gainNode.gain.cancelScheduledValues(now);
-    this.gainNode.gain.setValueAtTime(0, now);
-    this.gainNode.gain.linearRampToValueAtTime(1, now + this.fadeInDuration);
+
+    if (this.useFadeIn) {
+      this.gainNode.gain.setValueAtTime(0, now);
+      this.gainNode.gain.linearRampToValueAtTime(1, now + this.fadeInDuration);
+    } else {
+      this.gainNode.gain.setValueAtTime(1, now);
+    }
   }
 
   /**
@@ -182,6 +273,12 @@ export class AudioPlayer {
   fadeOut() {
     return new Promise((resolve) => {
       if (!this.gainNode || !this.audioContext) {
+        resolve();
+        return;
+      }
+
+      if (!this.useFadeOut) {
+        // No fade out, resolve immediately
         resolve();
         return;
       }
@@ -245,6 +342,7 @@ export class AudioPlayer {
    * Cleanup
    */
   destroy() {
+    this.clearEndTimeTimeout();
     this.stop(true);
     if (this.audioContext) {
       this.audioContext.close();

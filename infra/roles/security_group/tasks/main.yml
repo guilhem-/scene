@@ -1,0 +1,37 @@
+---
+- name: Create EC2 security group
+  amazon.aws.ec2_security_group:
+    name: "{{ ec2_security_group }}"
+    description: "Security group for Scene Performance Manager"
+    region: "{{ aws_region }}"
+    rules:
+      - proto: tcp
+        from_port: 22
+        to_port: 22
+        cidr_ip: 0.0.0.0/0
+        rule_desc: "SSH access"
+      - proto: tcp
+        from_port: 80
+        to_port: 80
+        cidr_ip: 0.0.0.0/0
+        rule_desc: "HTTP access"
+      - proto: tcp
+        from_port: 443
+        to_port: 443
+        cidr_ip: 0.0.0.0/0
+        rule_desc: "HTTPS access"
+    rules_egress:
+      - proto: all
+        cidr_ip: 0.0.0.0/0
+        rule_desc: "Allow all outbound traffic"
+    tags: "{{ aws_tags | default({'Name': 'scene_sg', 'Project': 'scene'}) }}"
+    state: present
+  register: security_group
+
+- name: Display security group info
+  ansible.builtin.debug:
+    msg: "Security group ID: {{ security_group.group_id }}"
+
+- name: Set security group fact
+  ansible.builtin.set_fact:
+    sg_id: "{{ security_group.group_id }}"

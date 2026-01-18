@@ -44,11 +44,22 @@ async function saveUploadedFile(file, performanceId) {
   // Write the file
   await fs.writeFile(filePath, file.buffer);
 
+  // Extract duration from audio metadata (dynamic import for ESM module)
+  let duration = 0;
+  try {
+    const { parseBuffer } = await import('music-metadata');
+    const metadata = await parseBuffer(file.buffer, { mimeType: file.mimetype });
+    duration = metadata.format.duration || 0;
+  } catch (err) {
+    console.error('Failed to extract audio duration:', err.message);
+  }
+
   return {
     originalName: file.originalname,
     filename,
     mimeType: file.mimetype,
-    size: file.size
+    size: file.size,
+    duration
   };
 }
 

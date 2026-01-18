@@ -33,7 +33,7 @@ router.get('/performances', async (req, res) => {
  */
 router.post('/performances', upload.single('musicFile'), async (req, res) => {
   try {
-    const { title, performerName, performerPseudo, startOffsetMinutes, startOffsetSeconds } = req.body;
+    const { title, performerName, performerPseudo, startOffsetMinutes, startOffsetSeconds, endTimeMinutes, endTimeSeconds, fadeIn, fadeOut, duration } = req.body;
 
     // Validate required fields
     if (!title || !performerName) {
@@ -53,6 +53,13 @@ router.post('/performances', upload.single('musicFile'), async (req, res) => {
         minutes: parseInt(startOffsetMinutes, 10) || 0,
         seconds: parseInt(startOffsetSeconds, 10) || 0
       },
+      endTime: {
+        minutes: parseInt(endTimeMinutes, 10) || 0,
+        seconds: parseInt(endTimeSeconds, 10) || 0
+      },
+      fadeIn: fadeIn !== 'false',
+      fadeOut: fadeOut !== 'false',
+      duration: parseFloat(duration) || 0,
       isOver: false,
       createdAt: now,
       updatedAt: now
@@ -66,6 +73,10 @@ router.post('/performances', upload.single('musicFile'), async (req, res) => {
         storedPath: getStoredPath(id, fileInfo.filename),
         mimeType: fileInfo.mimeType
       };
+      // Store duration from audio file
+      if (fileInfo.duration > 0) {
+        performance.duration = fileInfo.duration;
+      }
     }
 
     // Save to data file
@@ -130,7 +141,7 @@ router.put('/performances/reorder', express.json(), async (req, res) => {
 router.put('/performances/:id', upload.single('musicFile'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, performerName, performerPseudo, startOffsetMinutes, startOffsetSeconds, isOver } = req.body;
+    const { title, performerName, performerPseudo, startOffsetMinutes, startOffsetSeconds, endTimeMinutes, endTimeSeconds, fadeIn, fadeOut, duration, isOver } = req.body;
 
     const data = await readPerformances();
     const index = data.performances.findIndex(p => p.id === id);
@@ -146,13 +157,32 @@ router.put('/performances/:id', upload.single('musicFile'), async (req, res) => 
     if (performerName !== undefined) performance.performerName = performerName;
     if (performerPseudo !== undefined) performance.performerPseudo = performerPseudo;
     if (startOffsetMinutes !== undefined || startOffsetSeconds !== undefined) {
+      const parsedOffsetMin = parseInt(startOffsetMinutes, 10);
+      const parsedOffsetSec = parseInt(startOffsetSeconds, 10);
       performance.startOffset = {
-        minutes: parseInt(startOffsetMinutes, 10) || performance.startOffset.minutes,
-        seconds: parseInt(startOffsetSeconds, 10) || performance.startOffset.seconds
+        minutes: isNaN(parsedOffsetMin) ? (performance.startOffset?.minutes || 0) : parsedOffsetMin,
+        seconds: isNaN(parsedOffsetSec) ? (performance.startOffset?.seconds || 0) : parsedOffsetSec
       };
+    }
+    if (endTimeMinutes !== undefined || endTimeSeconds !== undefined) {
+      const parsedEndMin = parseInt(endTimeMinutes, 10);
+      const parsedEndSec = parseInt(endTimeSeconds, 10);
+      performance.endTime = {
+        minutes: isNaN(parsedEndMin) ? (performance.endTime?.minutes || 0) : parsedEndMin,
+        seconds: isNaN(parsedEndSec) ? (performance.endTime?.seconds || 0) : parsedEndSec
+      };
+    }
+    if (fadeIn !== undefined) {
+      performance.fadeIn = fadeIn === 'true' || fadeIn === true;
+    }
+    if (fadeOut !== undefined) {
+      performance.fadeOut = fadeOut === 'true' || fadeOut === true;
     }
     if (isOver !== undefined) {
       performance.isOver = isOver === 'true' || isOver === true;
+    }
+    if (duration !== undefined) {
+      performance.duration = parseFloat(duration) || 0;
     }
 
     // Handle file upload if present
@@ -168,6 +198,10 @@ router.put('/performances/:id', upload.single('musicFile'), async (req, res) => 
         storedPath: getStoredPath(id, fileInfo.filename),
         mimeType: fileInfo.mimeType
       };
+      // Store duration from audio file
+      if (fileInfo.duration > 0) {
+        performance.duration = fileInfo.duration;
+      }
     }
 
     performance.updatedAt = new Date().toISOString();
@@ -212,7 +246,7 @@ router.delete('/performances/:id', async (req, res) => {
 
 /**
  * GET /api/performances/:id/music
- * Stream music file
+ * Stream music file with Range request support for seeking
  */
 router.get('/performances/:id/music', async (req, res) => {
   try {
@@ -235,15 +269,40 @@ router.get('/performances/:id/music', async (req, res) => {
       return res.status(404).json({ error: 'Music file not found on disk' });
     }
 
-    // Set content type
-    res.setHeader('Content-Type', performance.musicFile.mimeType);
-
-    // Stream the file
     const stat = fs.statSync(filePath);
-    res.setHeader('Content-Length', stat.size);
+    const fileSize = stat.size;
+    const mimeType = performance.musicFile.mimeType;
 
-    const readStream = fs.createReadStream(filePath);
-    readStream.pipe(res);
+    // Handle Range requests for seeking support
+    const range = req.headers.range;
+
+    if (range) {
+      // Parse Range header (e.g., "bytes=32324-")
+      const parts = range.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+      const chunkSize = end - start + 1;
+
+      res.writeHead(206, {
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunkSize,
+        'Content-Type': mimeType
+      });
+
+      const readStream = fs.createReadStream(filePath, { start, end });
+      readStream.pipe(res);
+    } else {
+      // No Range header - send full file with Accept-Ranges header
+      res.writeHead(200, {
+        'Content-Length': fileSize,
+        'Content-Type': mimeType,
+        'Accept-Ranges': 'bytes'
+      });
+
+      const readStream = fs.createReadStream(filePath);
+      readStream.pipe(res);
+    }
   } catch (error) {
     console.error('Error streaming music:', error);
     res.status(500).json({ error: 'Failed to stream music file' });
