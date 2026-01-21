@@ -282,7 +282,6 @@ body::before {
 }
 
 .performance-card.is-over {
-  opacity: 0.7;
   background-color: var(--color-bg-muted);
 }
 
@@ -651,12 +650,15 @@ body::before {
 
 .form-group input[type="text"],
 .form-group input[type="number"],
+.form-group input[type="password"],
 .form-group input[type="file"] {
   width: 100%;
   padding: var(--space-sm) var(--space-md);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   font-size: var(--font-size-base);
+  background-color: var(--color-surface);
+  color: var(--color-text);
   transition: border-color var(--transition-fast);
 }
 
@@ -785,6 +787,30 @@ body::before {
   gap: var(--space-sm);
   padding: var(--space-lg);
   border-top: 1px solid var(--color-border);
+}
+
+/* Error Message */
+.error-message {
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+  margin-top: var(--space-sm);
+  padding: var(--space-sm);
+  background-color: #fee2e2;
+  border-radius: var(--radius-sm);
+}
+
+[data-theme="dark"] .error-message {
+  background-color: #7f1d1d;
+  color: #fca5a5;
+}
+
+/* Login Form */
+#login-form {
+  padding: var(--space-lg);
+}
+
+#login-form .form-group {
+  margin-bottom: var(--space-md);
 }
 
 /* Utility */
