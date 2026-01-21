@@ -2,7 +2,7 @@
 - name: Skip certbot if no domain configured
   ansible.builtin.debug:
     msg: "Skipping SSL certificate - no domain configured"
-  when: not (domain_name | default(''))
+  when: domain_name | default('') | length == 0
 
 - name: Install certbot
   ansible.builtin.apt:
@@ -10,40 +10,32 @@
       - certbot
       - python3-certbot-nginx
     state: present
-  when: domain_name | default('')
-
-- name: Create webroot directory for ACME challenges
-  ansible.builtin.file:
-    path: /var/www/certbot
-    state: directory
-    mode: "0755"
-  when: domain_name | default('')
+  when: domain_name | default('') | length > 0
 
 - name: Check if certificate exists
   ansible.builtin.stat:
     path: "/etc/letsencrypt/live/{{ domain_name }}/fullchain.pem"
   register: cert_exists
-  when: domain_name | default('')
+  when: domain_name | default('') | length > 0
 
-- name: Obtain SSL certificate
+- name: Obtain SSL certificate using nginx plugin
   ansible.builtin.command: >
-    certbot certonly
-    --nginx
+    certbot --nginx
     --non-interactive
     --agree-tos
     --email {{ letsencrypt_email }}
     --domain {{ domain_name }}
+    --redirect
   register: certbot_result
   when:
-    - domain_name | default('')
-    - letsencrypt_email | default('')
-    - not cert_exists.stat.exists | default(true)
-  notify: Reload nginx
+    - domain_name | default('') | length > 0
+    - letsencrypt_email | default('') | length > 0
+    - not (cert_exists.stat.exists | default(false))
 
 - name: Display certbot result
   ansible.builtin.debug:
     msg: "{{ certbot_result.stdout_lines | default(['Certificate already exists']) }}"
-  when: domain_name | default('')
+  when: domain_name | default('') | length > 0
 
 - name: Setup automatic certificate renewal
   ansible.builtin.cron:
@@ -54,7 +46,7 @@
     month: "*"
     weekday: "*"
     job: "certbot renew --quiet --post-hook 'systemctl reload nginx'"
-  when: domain_name | default('')
+  when: domain_name | default('') | length > 0
 
 - name: Test certificate renewal
   ansible.builtin.command: certbot renew --dry-run
@@ -62,5 +54,5 @@
   changed_when: false
   failed_when: false
   when:
-    - domain_name | default('')
-    - cert_exists.stat.exists | default(false)
+    - domain_name | default('') | length > 0
+    - cert_exists.stat.exists | default(false) or certbot_result.changed | default(false)

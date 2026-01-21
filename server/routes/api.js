@@ -10,6 +10,7 @@ const {
   DATA_DIR
 } = require('../utils/fileManager');
 const { upload, saveUploadedFile } = require('./upload');
+const { requireAuth } = require('./auth');
 
 const router = express.Router();
 
@@ -30,8 +31,9 @@ router.get('/performances', async (req, res) => {
 /**
  * POST /api/performances
  * Create a new performance (with optional file upload)
+ * Requires authentication
  */
-router.post('/performances', upload.single('musicFile'), async (req, res) => {
+router.post('/performances', requireAuth, upload.single('musicFile'), async (req, res) => {
   try {
     const { title, performerName, performerPseudo, startOffsetMinutes, startOffsetSeconds, endTimeMinutes, endTimeSeconds, fadeIn, fadeOut, duration } = req.body;
 
@@ -94,9 +96,10 @@ router.post('/performances', upload.single('musicFile'), async (req, res) => {
 /**
  * PUT /api/performances/reorder
  * Reorder performances
+ * Requires authentication
  * NOTE: This route must be defined before /performances/:id routes
  */
-router.put('/performances/reorder', express.json(), async (req, res) => {
+router.put('/performances/reorder', requireAuth, express.json(), async (req, res) => {
   try {
     const { order } = req.body; // Array of IDs in new order
 
@@ -137,8 +140,9 @@ router.put('/performances/reorder', express.json(), async (req, res) => {
 /**
  * PUT /api/performances/:id
  * Update an existing performance
+ * Requires authentication
  */
-router.put('/performances/:id', upload.single('musicFile'), async (req, res) => {
+router.put('/performances/:id', requireAuth, upload.single('musicFile'), async (req, res) => {
   try {
     const { id } = req.params;
     const { title, performerName, performerPseudo, startOffsetMinutes, startOffsetSeconds, endTimeMinutes, endTimeSeconds, fadeIn, fadeOut, duration, isOver } = req.body;
@@ -218,8 +222,9 @@ router.put('/performances/:id', upload.single('musicFile'), async (req, res) => 
 /**
  * DELETE /api/performances/:id
  * Delete a performance
+ * Requires authentication
  */
-router.delete('/performances/:id', async (req, res) => {
+router.delete('/performances/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
 

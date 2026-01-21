@@ -10,9 +10,9 @@ app_dir: /opt/scene
 nodejs_version: "20.x"
 
 # AWS settings
-aws_region: "{{ lookup('env', 'AWS_DEFAULT_REGION') | default('us-east-1', true) }}"
+aws_region: "{{ lookup('env', 'AWS_DEFAULT_REGION') | default('eu-west-3', true) }}"
 ec2_instance_type: t3.small
-ec2_ami: ami-0c7217cdde317cfec  # Ubuntu 22.04 LTS us-east-1
+ec2_ami: ami-00983e8a26e4c9bd9  # Ubuntu 22.04 LTS eu-west-3
 ec2_key_name: scene_server
 ec2_security_group: scene_sg
 

@@ -7,8 +7,23 @@ export class DragDropManager {
     this.container = document.querySelector(containerSelector);
     this.draggedElement = null;
     this.onReorder = null;
+    this.enabled = false;
 
     this.setupEvents();
+  }
+
+  /**
+   * Enable drag and drop
+   */
+  enable() {
+    this.enabled = true;
+  }
+
+  /**
+   * Disable drag and drop
+   */
+  disable() {
+    this.enabled = false;
   }
 
   setupEvents() {
@@ -21,6 +36,10 @@ export class DragDropManager {
   }
 
   handleDragStart(e) {
+    if (!this.enabled) {
+      e.preventDefault();
+      return;
+    }
     const card = e.target.closest('.performance-card');
     if (!card) return;
 

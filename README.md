@@ -11,6 +11,7 @@ Application web monopage (SPA) pour gérer une liste de performances avec lectur
 - [Architecture du projet](#architecture-du-projet)
 - [API REST](#api-rest)
 - [Fonctionnalités](#fonctionnalités)
+- [Authentification](#authentification)
 - [Tests](#tests)
 - [Développement](#développement)
 - [Notes techniques](#notes-techniques)
@@ -172,6 +173,55 @@ Mêmes champs que POST, tous optionnels. Seuls les champs fournis sont mis à jo
 - Thème clair et sombre (bascule automatique sauvegardée)
 - Design responsive
 - Interface en français
+
+## Authentification
+
+L'application utilise un système d'authentification simple par mot de passe.
+
+### Niveaux d'accès
+
+| Utilisateur | Permissions |
+|-------------|-------------|
+| Non authentifié | Consultation de la liste des performances |
+| Authentifié | Ajout, modification, suppression de performances, lecture audio, glisser-déposer |
+
+### Configuration du mot de passe
+
+Le mot de passe est stocké sous forme de hash SHA256 dans le fichier `server/config/auth.json`.
+
+### Changer le mot de passe
+
+1. Générer le hash SHA256 du nouveau mot de passe :
+
+```bash
+echo -n "votre_nouveau_mot_de_passe" | sha256sum
+```
+
+2. Copier le hash (sans les espaces et le tiret à la fin)
+
+3. Modifier le fichier `server/config/auth.json` :
+
+```json
+{
+  "passwordHash": "votre_nouveau_hash_ici"
+}
+```
+
+4. Redémarrer le serveur
+
+### Session utilisateur
+
+- La session est stockée dans le localStorage du navigateur
+- Un timestamp est enregistré lors de la connexion
+- La session expire automatiquement au bout de **8 heures**
+- La déconnexion efface le localStorage
+
+### Sécurité
+
+- Le fichier `server/config/auth.json` est exclu du contrôle de version (gitignore)
+- Un fichier exemple `auth.json.example` est fourni comme modèle
+- Le hash du mot de passe est transmis comme token d'authentification
+- Les routes protégées vérifient le header `Authorization: Bearer <token>`
 
 ## Tests
 

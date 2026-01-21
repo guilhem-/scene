@@ -1,0 +1,91 @@
+---
+# Scene Performance Manager - Quick Code Sync Playbook
+# Usage: ansible-playbook playbooks/sync.yml -e "target_host=15.188.23.17"
+# Or:    ansible-playbook playbooks/sync.yml -e "target_host=scene.caramanga.cc"
+#
+# This playbook only syncs code and restarts the app - no infrastructure changes.
+# Useful for rapid testing iterations.
+
+- name: Quick Code Sync
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Validate target_host is provided
+      ansible.builtin.fail:
+        msg: "Please provide target_host: ansible-playbook playbooks/sync.yml -e 'target_host=<IP_OR_DOMAIN>'"
+      when: target_host is not defined
+
+    - name: Add target to inventory
+      ansible.builtin.add_host:
+        hostname: "{{ target_host }}"
+        groupname: scene_servers
+        ansible_user: ubuntu
+        ansible_ssh_private_key_file: "~/.ssh/scene_server.pem"
+
+- name: Sync Application Code
+  hosts: scene_servers
+  become: yes
+  gather_facts: no
+  vars_files:
+    - ../vars/main.yml
+
+  tasks:
+    - name: Synchronize application files
+      ansible.posix.synchronize:
+        src: "{{ playbook_dir }}/../../"
+        dest: "{{ app_dir }}/"
+        delete: yes
+        recursive: yes
+        rsync_opts:
+          - "--exclude=node_modules"
+          - "--exclude=.git"
+          - "--exclude=infra"
+          - "--exclude=.env"
+          - "--exclude=*.log"
+          - "--exclude=data"
+
+    - name: Set ownership of application files
+      ansible.builtin.file:
+        path: "{{ app_dir }}"
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        recurse: yes
+
+    - name: Check if package.json changed
+      ansible.builtin.command:
+        cmd: git diff --name-only HEAD~1
+        chdir: "{{ playbook_dir }}/../.."
+      delegate_to: localhost
+      become: no
+      register: changed_files
+      changed_when: false
+      failed_when: false
+
+    - name: Install npm dependencies (if package.json changed)
+      ansible.builtin.command:
+        cmd: npm ci --omit=dev
+        chdir: "{{ app_dir }}"
+      become: yes
+      become_user: "{{ app_user }}"
+      when: "'package.json' in changed_files.stdout or 'package-lock.json' in changed_files.stdout"
+      register: npm_install
+
+    - name: Restart scene service
+      ansible.builtin.systemd:
+        name: "{{ app_name }}"
+        state: restarted
+
+    - name: Wait for application to be ready
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ app_port }}/api/performances"
+        status_code: 200
+      register: result
+      until: result.status == 200
+      retries: 10
+      delay: 1
+
+    - name: Sync complete
+      ansible.builtin.debug:
+        msg: "Code synced and app restarted on {{ inventory_hostname }}"

@@ -26,9 +26,14 @@ Thumbs.db
 .env.local
 .env.*
 
+# Server auth config (contains password hash)
+server/config/auth.json
+
 # Ansible/Infrastructure Secrets
 infra/vars/secrets.yml
 infra/vars/secrets.*.yml
+infra/vars/secrets.yml.bak*
+*.bak
 infra/vars/*.vault.yml
 *.vault.yml
 *.vault

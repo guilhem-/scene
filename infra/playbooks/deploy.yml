@@ -6,6 +6,7 @@
   hosts: localhost
   connection: local
   gather_facts: false
+  become: no
   vars_files:
     - ../vars/main.yml
     - ../vars/secrets.yml
@@ -22,14 +23,20 @@
         instance_type: "{{ ec2_instance_type }}"
         image_id: "{{ ec2_ami }}"
         region: "{{ aws_region }}"
-        security_group: "{{ ec2_security_group }}"
+        vpc_subnet_id: "{{ subnet_id }}"
+        security_group: "{{ sg_id }}"
+        network_interfaces:
+          - assign_public_ip: true
+            device_index: 0
         volumes:
           - device_name: /dev/sda1
             ebs:
               volume_size: "{{ ec2_volume_size | default(20) }}"
               delete_on_termination: true
               volume_type: gp3
-        tags: "{{ aws_tags | default({'Name': 'scene_server', 'Project': 'scene'}) }}"
+        tags:
+          Name: scene_server
+          Project: scene
         wait: yes
         state: running
       register: ec2

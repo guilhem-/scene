@@ -22,7 +22,7 @@ export class PerformanceList {
   /**
    * Render the list of performances
    */
-  render(performances, loading = false) {
+  render(performances, loading = false, authenticated = false) {
     // Show/hide loading
     this.loadingEl.classList.toggle('hidden', !loading);
 
@@ -51,6 +51,7 @@ export class PerformanceList {
     performances.forEach((performance, index) => {
       const card = new PerformanceCard(performance, {
         position: index + 1,
+        authenticated,
         onEdit: this.onEdit,
         onDelete: this.onDelete,
         onToggleOver: this.onToggleOver,

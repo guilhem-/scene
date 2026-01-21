@@ -33,6 +33,14 @@
     create_home: yes
     system: yes
 
+- name: Create ansible tmp directory for app user
+  ansible.builtin.file:
+    path: "/home/{{ app_user }}/.ansible/tmp"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
+
 - name: Create application directory
   ansible.builtin.file:
     path: "{{ app_dir }}"

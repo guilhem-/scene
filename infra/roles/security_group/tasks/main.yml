@@ -4,6 +4,7 @@
     name: "{{ ec2_security_group }}"
     description: "Security group for Scene Performance Manager"
     region: "{{ aws_region }}"
+    vpc_id: "{{ vpc_id }}"
     rules:
       - proto: tcp
         from_port: 22
@@ -24,7 +25,9 @@
       - proto: all
         cidr_ip: 0.0.0.0/0
         rule_desc: "Allow all outbound traffic"
-    tags: "{{ aws_tags | default({'Name': 'scene_sg', 'Project': 'scene'}) }}"
+    tags:
+      Name: scene_sg
+      Project: scene
     state: present
   register: security_group
 

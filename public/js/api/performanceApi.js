@@ -2,7 +2,20 @@
  * Performance API client
  */
 
+import { getAuthToken } from '../auth/authManager.js';
+
 const API_BASE = '/api';
+
+/**
+ * Get authorization headers if authenticated
+ */
+function getAuthHeaders() {
+  const token = getAuthToken();
+  if (token) {
+    return { 'Authorization': `Bearer ${token}` };
+  }
+  return {};
+}
 
 /**
  * Fetch all performances
@@ -17,10 +30,12 @@ export async function getPerformances() {
 
 /**
  * Create a new performance
+ * Requires authentication
  */
 export async function createPerformance(formData) {
   const response = await fetch(`${API_BASE}/performances`, {
     method: 'POST',
+    headers: getAuthHeaders(),
     body: formData
   });
   if (!response.ok) {
@@ -32,10 +47,12 @@ export async function createPerformance(formData) {
 
 /**
  * Update an existing performance
+ * Requires authentication
  */
 export async function updatePerformance(id, formData) {
   const response = await fetch(`${API_BASE}/performances/${id}`, {
     method: 'PUT',
+    headers: getAuthHeaders(),
     body: formData
   });
   if (!response.ok) {
@@ -47,10 +64,12 @@ export async function updatePerformance(id, formData) {
 
 /**
  * Delete a performance
+ * Requires authentication
  */
 export async function deletePerformance(id) {
   const response = await fetch(`${API_BASE}/performances/${id}`, {
-    method: 'DELETE'
+    method: 'DELETE',
+    headers: getAuthHeaders()
   });
   if (!response.ok) {
     const error = await response.json();
@@ -61,12 +80,14 @@ export async function deletePerformance(id) {
 
 /**
  * Reorder performances
+ * Requires authentication
  */
 export async function reorderPerformances(order) {
   const response = await fetch(`${API_BASE}/performances/reorder`, {
     method: 'PUT',
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      ...getAuthHeaders()
     },
     body: JSON.stringify({ order })
   });

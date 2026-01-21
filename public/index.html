@@ -19,6 +19,8 @@
       <div class="header-actions">
         <span id="end-time-badge" class="end-time-badge" title="Heure de fin estimée du spectacle">Fin --:--</span>
         <button id="show-history-btn" class="btn btn-secondary btn-sm">Historique</button>
+        <button id="login-btn" class="btn btn-primary btn-sm">Connexion</button>
+        <button id="logout-btn" class="btn btn-secondary btn-sm hidden">Deconnexion</button>
         <label class="theme-toggle">
           <input type="checkbox" id="theme-toggle">
           <span class="toggle-slider"></span>
@@ -156,6 +158,27 @@
           <p>Aucune performance terminée.</p>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Login Modal -->
+  <div id="login-overlay" class="modal-overlay hidden">
+    <div class="modal modal-small">
+      <div class="modal-header">
+        <h2>Connexion</h2>
+        <button id="login-close" class="btn-icon">&times;</button>
+      </div>
+      <form id="login-form">
+        <div class="form-group">
+          <label for="login-password">Mot de passe</label>
+          <input type="password" id="login-password" name="password" required autocomplete="current-password">
+        </div>
+        <p id="login-error" class="error-message hidden"></p>
+        <div class="form-actions">
+          <button type="button" id="login-cancel" class="btn btn-secondary">Annuler</button>
+          <button type="submit" class="btn btn-primary">Connexion</button>
+        </div>
+      </form>
     </div>
   </div>
 

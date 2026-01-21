@@ -14,10 +14,55 @@ SECRETS_EXAMPLE="$VARS_DIR/secrets.yml.example"
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
+
+# Default options
+USE_SSO=false
+SKIP_ENCRYPT=false
+
+# Parse arguments
+show_help() {
+    echo "Usage: $(basename "$0") [OPTIONS]"
+    echo
+    echo "Options:"
+    echo "  --sso         Use AWS SSO authentication (skip AWS credential prompts)"
+    echo "  --no-encrypt  Create secrets file without encrypting (for testing)"
+    echo "  -h, --help    Show this help message"
+    echo
+    echo "Examples:"
+    echo "  $(basename "$0")           # Full setup with AWS credentials"
+    echo "  $(basename "$0") --sso     # SSO mode - only domain/SSL config"
+    echo
+}
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --sso)
+            USE_SSO=true
+            shift
+            ;;
+        --no-encrypt)
+            SKIP_ENCRYPT=true
+            shift
+            ;;
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Unknown option: $1${NC}"
+            show_help
+            exit 1
+            ;;
+    esac
+done
 
 echo "=========================================="
 echo "Scene - Ansible Vault Setup"
+if [ "$USE_SSO" = true ]; then
+    echo -e "${CYAN}Mode: AWS SSO${NC}"
+fi
 echo "=========================================="
 echo
 
@@ -63,74 +108,122 @@ if [ -f "$SECRETS_FILE" ]; then
 fi
 
 # Create new secrets file
-echo "Creating new secrets file from template..."
+echo "Creating new secrets file..."
 echo
-
-if [ ! -f "$SECRETS_EXAMPLE" ]; then
-    echo -e "${RED}Error: Template file not found at $SECRETS_EXAMPLE${NC}"
-    exit 1
-fi
-
-# Copy template
-cp "$SECRETS_EXAMPLE" "$SECRETS_FILE"
 
 echo "Please provide your configuration values:"
 echo "(Press Enter to skip optional fields)"
 echo
 
-# Collect values
-read -p "AWS Access Key ID (or press Enter to use env vars): " aws_access_key
-read -s -p "AWS Secret Access Key (or press Enter to use env vars): " aws_secret_key
+# Collect AWS credentials only if not using SSO
+if [ "$USE_SSO" = false ]; then
+    echo -e "${CYAN}AWS Credentials${NC}"
+    read -p "AWS Access Key ID (or press Enter to use env vars): " aws_access_key
+    read -s -p "AWS Secret Access Key (or press Enter to use env vars): " aws_secret_key
+    echo
+    echo
+fi
+
+# Always collect these values
+echo -e "${CYAN}Domain Configuration (optional - for HTTPS)${NC}"
+read -p "Domain name (e.g., scene.example.com): " domain_name
+if [ -n "$domain_name" ]; then
+    read -p "Route53 Zone ID (required for domain): " route53_zone_id
+    read -p "Let's Encrypt email (required for SSL): " letsencrypt_email
+else
+    route53_zone_id=""
+    letsencrypt_email=""
+fi
 echo
-read -p "Domain name (optional, e.g., scene.example.com): " domain_name
-read -p "Route53 Zone ID (optional, required if using domain): " route53_zone_id
-read -p "Let's Encrypt email (optional, required for SSL): " letsencrypt_email
+
+echo -e "${CYAN}AWS Configuration${NC}"
+read -p "AWS Region [eu-west-3]: " aws_region
 read -p "EC2 Key Pair name [scene_server]: " ec2_key_name
 
 # Set defaults
+aws_region="${aws_region:-eu-west-3}"
 ec2_key_name="${ec2_key_name:-scene_server}"
 
-# Update secrets file
+# Build secrets file
 cat > "$SECRETS_FILE" << EOF
 ---
 # Ansible Vault encrypted secrets for Scene Performance Manager
-# Encrypted on: $(date)
+# Generated on: $(date)
+# Mode: $([ "$USE_SSO" = true ] && echo "AWS SSO" || echo "AWS IAM Credentials")
 
 EOF
 
-if [ -n "$aws_access_key" ]; then
-    echo "aws_access_key: \"$aws_access_key\"" >> "$SECRETS_FILE"
+if [ "$USE_SSO" = true ]; then
+    cat >> "$SECRETS_FILE" << EOF
+# AWS Authentication: Using SSO
+# Run 'aws sso login --profile <your-profile>' before deploying
+# Then set: export AWS_PROFILE=<your-profile>
+
+EOF
+else
+    if [ -n "$aws_access_key" ]; then
+        echo "aws_access_key: \"$aws_access_key\"" >> "$SECRETS_FILE"
+    fi
+    if [ -n "$aws_secret_key" ]; then
+        echo "aws_secret_key: \"$aws_secret_key\"" >> "$SECRETS_FILE"
+    fi
+    if [ -z "$aws_access_key" ] && [ -z "$aws_secret_key" ]; then
+        cat >> "$SECRETS_FILE" << EOF
+# AWS Authentication: Using environment variables or ~/.aws/credentials
+
+EOF
+    fi
 fi
 
-if [ -n "$aws_secret_key" ]; then
-    echo "aws_secret_key: \"$aws_secret_key\"" >> "$SECRETS_FILE"
+cat >> "$SECRETS_FILE" << EOF
+# AWS Configuration
+aws_region: "$aws_region"
+ec2_key_name: "$ec2_key_name"
+
+# Domain configuration (optional - for HTTPS)
+domain_name: "$domain_name"
+route53_zone_id: "$route53_zone_id"
+letsencrypt_email: "$letsencrypt_email"
+EOF
+
+# Encrypt the file (unless skipped)
+if [ "$SKIP_ENCRYPT" = true ]; then
+    echo
+    echo -e "${YELLOW}Skipping encryption (--no-encrypt flag set)${NC}"
+    echo -e "${YELLOW}WARNING: secrets.yml is NOT encrypted!${NC}"
+else
+    echo
+    echo "Encrypting secrets file..."
+    echo "You will be prompted to create a vault password."
+    echo
+    ansible-vault encrypt "$SECRETS_FILE"
 fi
-
-echo "" >> "$SECRETS_FILE"
-echo "# Domain configuration" >> "$SECRETS_FILE"
-echo "domain_name: \"$domain_name\"" >> "$SECRETS_FILE"
-echo "route53_zone_id: \"$route53_zone_id\"" >> "$SECRETS_FILE"
-echo "letsencrypt_email: \"$letsencrypt_email\"" >> "$SECRETS_FILE"
-echo "" >> "$SECRETS_FILE"
-echo "# EC2 Key Pair" >> "$SECRETS_FILE"
-echo "ec2_key_name: \"$ec2_key_name\"" >> "$SECRETS_FILE"
-
-# Encrypt the file
-echo
-echo "Encrypting secrets file..."
-echo "You will be prompted to create a vault password."
-echo
-ansible-vault encrypt "$SECRETS_FILE"
 
 echo
 echo -e "${GREEN}=========================================="
-echo "Secrets file created and encrypted!"
+echo "Secrets file created!"
 echo "==========================================${NC}"
 echo
 echo "File location: $SECRETS_FILE"
 echo
-echo "Usage:"
-echo "  ansible-playbook playbooks/deploy.yml --ask-vault-pass"
+
+if [ "$USE_SSO" = true ]; then
+    echo "Usage with AWS SSO:"
+    echo "  aws sso login --profile <your-profile>"
+    echo "  export AWS_PROFILE=<your-profile>"
+    if [ "$SKIP_ENCRYPT" = false ]; then
+        echo "  ansible-playbook playbooks/deploy.yml --ask-vault-pass"
+    else
+        echo "  ansible-playbook playbooks/deploy.yml"
+    fi
+else
+    echo "Usage:"
+    if [ "$SKIP_ENCRYPT" = false ]; then
+        echo "  ansible-playbook playbooks/deploy.yml --ask-vault-pass"
+    else
+        echo "  ansible-playbook playbooks/deploy.yml"
+    fi
+fi
 echo
 echo "Or set ANSIBLE_VAULT_PASSWORD_FILE:"
 echo "  echo 'your-password' > ~/.vault_pass"

@@ -15,6 +15,7 @@ import { PerformanceList } from './components/PerformanceList.js';
 import { PerformanceForm } from './components/PerformanceForm.js';
 import { DragDropManager } from './components/DragDropManager.js';
 import { ConfirmModal } from './components/Modal.js';
+import { isAuthenticated, login, logout, verifySession } from './auth/authManager.js';
 
 class App {
   constructor() {
@@ -33,6 +34,14 @@ class App {
     // End time badge
     this.endTimeBadge = null;
     this.endTimeInterval = null;
+
+    // Auth elements
+    this.loginBtn = null;
+    this.logoutBtn = null;
+    this.loginOverlay = null;
+    this.loginForm = null;
+    this.loginError = null;
+    this.addBtn = null;
   }
 
   /**
@@ -53,14 +62,20 @@ class App {
 
     // Subscribe to store changes
     store.subscribe((state) => {
-      this.performanceList.render(state.performances, state.loading);
+      this.performanceList.render(state.performances, state.loading, isAuthenticated());
     });
 
     // Setup UI events
     this.setupUIEvents();
 
+    // Setup auth events
+    this.setupAuthEvents();
+
     // Setup end time badge update
     this.setupEndTimeBadge();
+
+    // Check auth status and update UI
+    await this.checkAuthStatus();
 
     // Load initial data
     await this.loadPerformances();
@@ -136,11 +151,121 @@ class App {
   }
 
   /**
+   * Setup authentication event listeners
+   */
+  setupAuthEvents() {
+    this.loginBtn = document.getElementById('login-btn');
+    this.logoutBtn = document.getElementById('logout-btn');
+    this.loginOverlay = document.getElementById('login-overlay');
+    this.loginForm = document.getElementById('login-form');
+    this.loginError = document.getElementById('login-error');
+    this.addBtn = document.getElementById('add-performance-btn');
+
+    // Login button
+    this.loginBtn.addEventListener('click', () => this.showLoginModal());
+
+    // Logout button
+    this.logoutBtn.addEventListener('click', () => this.handleLogout());
+
+    // Login form
+    this.loginForm.addEventListener('submit', (e) => this.handleLogin(e));
+
+    // Login modal close
+    const loginClose = document.getElementById('login-close');
+    const loginCancel = document.getElementById('login-cancel');
+    loginClose.addEventListener('click', () => this.hideLoginModal());
+    loginCancel.addEventListener('click', () => this.hideLoginModal());
+
+    // Close on overlay click
+    this.loginOverlay.addEventListener('click', (e) => {
+      if (e.target === this.loginOverlay) {
+        this.hideLoginModal();
+      }
+    });
+  }
+
+  /**
+   * Check authentication status and update UI
+   */
+  async checkAuthStatus() {
+    if (isAuthenticated()) {
+      // Verify session is still valid on server
+      const valid = await verifySession();
+      this.updateAuthUI(valid);
+    } else {
+      this.updateAuthUI(false);
+    }
+  }
+
+  /**
+   * Update UI based on authentication state
+   */
+  updateAuthUI(authenticated) {
+    if (authenticated) {
+      this.loginBtn.classList.add('hidden');
+      this.logoutBtn.classList.remove('hidden');
+      this.addBtn.classList.remove('hidden');
+      this.dragDropManager.enable();
+    } else {
+      this.loginBtn.classList.remove('hidden');
+      this.logoutBtn.classList.add('hidden');
+      this.addBtn.classList.add('hidden');
+      this.dragDropManager.disable();
+    }
+    // Re-render performance list with current auth state
+    const state = store.getState();
+    this.performanceList.render(state.performances, state.loading, authenticated);
+  }
+
+  /**
+   * Show login modal
+   */
+  showLoginModal() {
+    this.loginError.classList.add('hidden');
+    this.loginForm.reset();
+    this.loginOverlay.classList.remove('hidden');
+    document.getElementById('login-password').focus();
+  }
+
+  /**
+   * Hide login modal
+   */
+  hideLoginModal() {
+    this.loginOverlay.classList.add('hidden');
+    this.loginError.classList.add('hidden');
+  }
+
+  /**
+   * Handle login form submission
+   */
+  async handleLogin(e) {
+    e.preventDefault();
+    const password = document.getElementById('login-password').value;
+
+    try {
+      await login(password);
+      this.hideLoginModal();
+      this.updateAuthUI(true);
+    } catch (error) {
+      this.loginError.textContent = error.message;
+      this.loginError.classList.remove('hidden');
+    }
+  }
+
+  /**
+   * Handle logout
+   */
+  handleLogout() {
+    logout();
+    this.updateAuthUI(false);
+  }
+
+  /**
    * Setup UI event listeners
    */
   setupUIEvents() {
-    const addBtn = document.getElementById('add-performance-btn');
-    addBtn.addEventListener('click', () => {
+    this.addBtn = document.getElementById('add-performance-btn');
+    this.addBtn.addEventListener('click', () => {
       this.performanceForm.showCreate();
     });
 

@@ -10,6 +10,7 @@ export class PerformanceCard {
     this.performance = performance;
     this.options = options;
     this.position = options.position || 1;
+    this.authenticated = options.authenticated || false;
     this.audioPlayer = null;
     this.element = null;
     this.statusEl = null;
@@ -32,7 +33,7 @@ export class PerformanceCard {
     const card = document.createElement('div');
     card.className = `performance-card${isOver ? ' is-over' : ''}`;
     card.dataset.id = id;
-    card.draggable = true;
+    card.draggable = this.authenticated;
 
     const offsetText = `${startOffset.minutes}:${startOffset.seconds.toString().padStart(2, '0')}`;
     const endTimeTotal = (endTime?.minutes || 0) * 60 + (endTime?.seconds || 0);
@@ -56,6 +57,36 @@ export class PerformanceCard {
     if (fadeOut !== false) fadeBadges.push('<span class="fade-badge fade-on" title="Fondu en sortie activé">Fade out</span>');
     const fadeBadgesHtml = fadeBadges.join('');
 
+    // Conditional elements based on authentication
+    const actionsHtml = this.authenticated ? `
+      <div class="card-actions">
+        <button class="btn btn-sm btn-secondary edit-btn">Modifier</button>
+        <button class="btn btn-sm btn-danger delete-btn">Supprimer</button>
+      </div>
+    ` : '';
+
+    const overToggleCompactHtml = this.authenticated ? `
+      <label class="over-toggle">
+        <input type="checkbox" class="over-checkbox" checked>
+      </label>
+    ` : '';
+
+    const overToggleHtml = this.authenticated ? `
+      <label class="over-toggle">
+        <input type="checkbox" class="over-checkbox">
+        <span>Terminé</span>
+      </label>
+    ` : '';
+
+    const audioControlsHtml = this.authenticated && musicFile ? `
+      <div class="audio-controls">
+        <button class="btn btn-primary play-btn" title="Lecture">&#9658;</button>
+        <button class="btn btn-secondary pause-btn" title="Pause" style="display: none;">&#10074;&#10074;</button>
+        <button class="btn btn-secondary stop-btn" title="Arrêt">&#9632;</button>
+      </div>
+      <span class="audio-status">Prêt</span>
+    ` : (musicFile ? '<span class="no-music">Audio disponible</span>' : '<span class="no-music">Pas de fichier musical</span>');
+
     if (isOver) {
       // Compact view for completed performances
       card.innerHTML = `
@@ -65,19 +96,14 @@ export class PerformanceCard {
         </div>
         <div class="card-content">
           <div class="card-header card-header-compact">
-            <label class="over-toggle">
-              <input type="checkbox" class="over-checkbox" checked>
-            </label>
+            ${overToggleCompactHtml}
             <div class="card-info">
               <span class="card-title-compact">${this.escapeHtml(title)}</span>
               <span class="card-performer-compact">
                 ${this.escapeHtml(performerName)}${performerPseudo ? ` (${this.escapeHtml(performerPseudo)})` : ''}
               </span>
             </div>
-            <div class="card-actions">
-              <button class="btn btn-sm btn-secondary edit-btn">Modifier</button>
-              <button class="btn btn-sm btn-danger delete-btn">Supprimer</button>
-            </div>
+            ${actionsHtml}
           </div>
         </div>
       `;
@@ -97,10 +123,7 @@ export class PerformanceCard {
                 ${performerPseudo ? `<span class="card-pseudo">(${this.escapeHtml(performerPseudo)})</span>` : ''}
               </div>
             </div>
-            <div class="card-actions">
-              <button class="btn btn-sm btn-secondary edit-btn">Modifier</button>
-              <button class="btn btn-sm btn-danger delete-btn">Supprimer</button>
-            </div>
+            ${actionsHtml}
           </div>
           <div class="audio-slider-container hidden">
             <div class="audio-slider-row">
@@ -118,24 +141,12 @@ export class PerformanceCard {
             </div>
           </div>
           <div class="card-body">
-            ${musicFile ? `
-              <div class="audio-controls">
-                <button class="btn btn-primary play-btn" title="Lecture">&#9658;</button>
-                <button class="btn btn-secondary pause-btn" title="Pause" style="display: none;">&#10074;&#10074;</button>
-                <button class="btn btn-secondary stop-btn" title="Arrêt">&#9632;</button>
-              </div>
-              <span class="audio-status">Prêt</span>
-            ` : `
-              <span class="no-music">Pas de fichier musical</span>
-            `}
+            ${audioControlsHtml}
             <div class="card-meta">
               ${musicFile ? `<span class="file-badge" title="${this.escapeHtml(musicFile.originalName)}">${this.escapeHtml(this.truncateFilename(musicFile.originalName))}</span>` : ''}
               <span class="offset-badge" title="Plage de lecture audio">${timeRangeText}</span>
               ${fadeBadgesHtml}
-              <label class="over-toggle">
-                <input type="checkbox" class="over-checkbox">
-                <span>Terminé</span>
-              </label>
+              ${overToggleHtml}
             </div>
           </div>
         </div>
@@ -152,26 +163,35 @@ export class PerformanceCard {
    * Setup event listeners
    */
   setupEvents() {
-    const editBtn = this.element.querySelector('.edit-btn');
-    const deleteBtn = this.element.querySelector('.delete-btn');
-    const overCheckbox = this.element.querySelector('.over-checkbox');
+    // Only setup action buttons if authenticated
+    if (this.authenticated) {
+      const editBtn = this.element.querySelector('.edit-btn');
+      const deleteBtn = this.element.querySelector('.delete-btn');
+      const overCheckbox = this.element.querySelector('.over-checkbox');
 
-    editBtn.addEventListener('click', () => {
-      if (this.onEdit) this.onEdit(this.performance);
-    });
-
-    deleteBtn.addEventListener('click', () => {
-      if (this.onDelete) this.onDelete(this.performance);
-    });
-
-    overCheckbox.addEventListener('change', (e) => {
-      if (this.onToggleOver) {
-        this.onToggleOver(this.performance, e.target.checked);
+      if (editBtn) {
+        editBtn.addEventListener('click', () => {
+          if (this.onEdit) this.onEdit(this.performance);
+        });
       }
-    });
 
-    // Audio controls (only for non-over performances with music)
-    if (this.performance.musicFile && !this.performance.isOver) {
+      if (deleteBtn) {
+        deleteBtn.addEventListener('click', () => {
+          if (this.onDelete) this.onDelete(this.performance);
+        });
+      }
+
+      if (overCheckbox) {
+        overCheckbox.addEventListener('change', (e) => {
+          if (this.onToggleOver) {
+            this.onToggleOver(this.performance, e.target.checked);
+          }
+        });
+      }
+    }
+
+    // Audio controls (only for authenticated users with non-over performances with music)
+    if (this.authenticated && this.performance.musicFile && !this.performance.isOver) {
       this.statusEl = this.element.querySelector('.audio-status');
       this.sliderContainer = this.element.querySelector('.audio-slider-container');
       this.slider = this.element.querySelector('.audio-slider');

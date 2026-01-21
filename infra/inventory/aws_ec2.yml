@@ -2,7 +2,7 @@
 plugin: amazon.aws.aws_ec2
 
 regions:
-  - "{{ lookup('env', 'AWS_DEFAULT_REGION') | default('us-east-1', true) }}"
+  - "{{ lookup('env', 'AWS_DEFAULT_REGION') | default('eu-west-3', true) }}"
 
 filters:
   tag:Name: scene_server
