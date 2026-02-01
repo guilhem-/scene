@@ -281,24 +281,29 @@ body::before {
   border-style: dashed;
 }
 
-.performance-card.is-over {
+.performance-card.is-over,
+.performance-card.is-cancelled {
   background-color: var(--color-bg-muted);
 }
 
-.performance-card.is-over .card-content {
+.performance-card.is-over .card-content,
+.performance-card.is-cancelled .card-content {
   padding: var(--space-sm) var(--space-md);
 }
 
-.performance-card.is-over .card-handle {
+.performance-card.is-over .card-handle,
+.performance-card.is-cancelled .card-handle {
   padding: var(--space-sm);
   min-width: 40px;
 }
 
-.performance-card.is-over .card-position {
+.performance-card.is-over .card-position,
+.performance-card.is-cancelled .card-position {
   font-size: var(--font-size-base);
 }
 
-.performance-card.is-over .card-title-compact {
+.performance-card.is-over .card-title-compact,
+.performance-card.is-cancelled .card-title-compact {
   text-decoration: line-through;
 }
 
@@ -541,20 +546,78 @@ body::before {
   color: #fca5a5;
 }
 
-.over-toggle {
+.category-badge {
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.category-solo {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+}
+
+.category-enfant {
+  background-color: #fef3c7;
+  color: #b45309;
+}
+
+.category-groupe {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+[data-theme="dark"] .category-solo {
+  background-color: #1e3a5f;
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .category-enfant {
+  background-color: #78350f;
+  color: #fcd34d;
+}
+
+[data-theme="dark"] .category-groupe {
+  background-color: #14532d;
+  color: #86efac;
+}
+
+.cancelled-badge {
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+[data-theme="dark"] .cancelled-badge {
+  background-color: #7f1d1d;
+  color: #fca5a5;
+}
+
+.over-toggle,
+.cancelled-toggle {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
   cursor: pointer;
 }
 
-.over-toggle input {
+.over-toggle input,
+.cancelled-toggle input {
   width: 18px;
   height: 18px;
   cursor: pointer;
 }
 
-.over-toggle label {
+.over-toggle label,
+.cancelled-toggle label {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
   cursor: pointer;
@@ -651,7 +714,8 @@ body::before {
 .form-group input[type="text"],
 .form-group input[type="number"],
 .form-group input[type="password"],
-.form-group input[type="file"] {
+.form-group input[type="file"],
+.form-group select {
   width: 100%;
   padding: var(--space-sm) var(--space-md);
   border: 1px solid var(--color-border);
@@ -660,6 +724,21 @@ body::before {
   background-color: var(--color-surface);
   color: var(--color-text);
   transition: border-color var(--transition-fast);
+}
+
+.form-group-inline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.form-group-inline label {
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+
+.form-group-inline select {
+  flex: 1;
 }
 
 .form-group input:focus {
@@ -818,11 +897,36 @@ body::before {
   display: none !important;
 }
 
-/* No Music Indicator */
-.no-music {
+/* No Music / No Confirmation Indicator */
+.no-music,
+.no-confirmation {
   font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
+  color: #dc2626;
   font-style: italic;
+  font-weight: 500;
+}
+
+/* Instructions Badge */
+.card-instructions {
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+.instructions-badge {
+  display: block;
+  width: 100%;
+  background-color: #fef3c7;
+  color: #92400e;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+
+[data-theme="dark"] .instructions-badge {
+  background-color: #78350f;
+  color: #fcd34d;
 }
 
 /* History Modal */

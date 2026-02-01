@@ -5,7 +5,9 @@ const path = require('path');
 
 const router = express.Router();
 
-const AUTH_CONFIG_PATH = path.join(__dirname, '../config/auth.json');
+const AUTH_CONFIG_PATH = process.env.CONFIG_DIR
+  ? path.join(process.env.CONFIG_DIR, 'auth.json')
+  : path.join(__dirname, '../config/auth.json');
 
 /**
  * Load auth configuration

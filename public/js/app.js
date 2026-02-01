@@ -11,6 +11,7 @@ import {
   deletePerformance,
   reorderPerformances
 } from './api/performanceApi.js';
+import { eventService } from './api/EventService.js';
 import { PerformanceList } from './components/PerformanceList.js';
 import { PerformanceForm } from './components/PerformanceForm.js';
 import { DragDropManager } from './components/DragDropManager.js';
@@ -42,6 +43,7 @@ class App {
     this.loginForm = null;
     this.loginError = null;
     this.addBtn = null;
+
   }
 
   /**
@@ -79,6 +81,37 @@ class App {
 
     // Load initial data
     await this.loadPerformances();
+
+    // Connect to real-time events
+    this.setupEventService();
+  }
+
+  /**
+   * Setup real-time event service
+   */
+  setupEventService() {
+    eventService.connect();
+
+    // All state changes come through SSE - no local store updates needed
+    eventService.on('performance:created', ({ performance }) => {
+      // Only add if not already in store (handles duplicate SSE or race conditions)
+      const existing = store.getState().performances.find(p => p.id === performance.id);
+      if (!existing) {
+        store.addPerformance(performance);
+      }
+    });
+
+    eventService.on('performance:updated', ({ performance }) => {
+      store.updatePerformance(performance.id, performance);
+    });
+
+    eventService.on('performance:deleted', ({ id }) => {
+      store.removePerformance(id);
+    });
+
+    eventService.on('performances:reordered', ({ performances }) => {
+      store.setPerformances(performances);
+    });
   }
 
   /**
@@ -128,6 +161,10 @@ class App {
 
     this.performanceList.onToggleOver = async (performance, isOver) => {
       await this.handleToggleOver(performance.id, isOver);
+    };
+
+    this.performanceList.onToggleCancelled = async (performance, isCancelled) => {
+      await this.handleToggleCancelled(performance.id, isCancelled);
     };
 
     // Form submit callback
@@ -382,10 +419,10 @@ class App {
     this.endTimeBadge = document.getElementById('end-time-badge');
     this.updateEndTimeBadge();
 
-    // Update every 5 seconds
+    // Update every second
     this.endTimeInterval = setInterval(() => {
       this.updateEndTimeBadge();
-    }, 5000);
+    }, 1000);
   }
 
   /**
@@ -393,10 +430,10 @@ class App {
    */
   updateEndTimeBadge() {
     const performances = store.getState().performances;
-    const pendingPerformances = performances.filter(p => !p.isOver);
+    const pendingPerformances = performances.filter(p => !p.isOver && !p.isCancelled);
 
     if (pendingPerformances.length === 0) {
-      this.endTimeBadge.textContent = 'Fin --:--';
+      this.endTimeBadge.textContent = 'Fin --:--:--';
       return;
     }
 
@@ -433,11 +470,12 @@ class App {
     const now = new Date();
     const endTime = new Date(now.getTime() + totalSeconds * 1000);
 
-    // Format as HH:MM
+    // Format as HH:MM:SS
     const hours = endTime.getHours().toString().padStart(2, '0');
     const minutes = endTime.getMinutes().toString().padStart(2, '0');
+    const seconds = endTime.getSeconds().toString().padStart(2, '0');
 
-    this.endTimeBadge.textContent = `Fin ${hours}:${minutes}`;
+    this.endTimeBadge.textContent = `Fin ${hours}:${minutes}:${seconds}`;
   }
 
   /**
@@ -489,11 +527,12 @@ class App {
 
   /**
    * Handle create performance
+   * Note: Store update happens via SSE event
    */
   async handleCreate(formData) {
     try {
-      const performance = await createPerformance(formData);
-      store.addPerformance(performance);
+      await createPerformance(formData);
+      // SSE will handle adding to store
     } catch (error) {
       console.error('Failed to create performance:', error);
       alert(`Erreur : ${error.message}`);
@@ -502,14 +541,12 @@ class App {
 
   /**
    * Handle update performance
+   * Note: Store update happens via SSE event
    */
   async handleUpdate(id, formData) {
     try {
-      const performance = await updatePerformance(id, formData);
-      store.updatePerformance(id, performance);
-
-      // Reload to reflect changes (especially if music file changed)
-      await this.loadPerformances();
+      await updatePerformance(id, formData);
+      // SSE will handle updating store
     } catch (error) {
       console.error('Failed to update performance:', error);
       alert(`Erreur : ${error.message}`);
@@ -518,11 +555,12 @@ class App {
 
   /**
    * Handle delete performance
+   * Note: Store update happens via SSE event
    */
   async handleDelete(id) {
     try {
       await deletePerformance(id);
-      store.removePerformance(id);
+      // SSE will handle removing from store
     } catch (error) {
       console.error('Failed to delete performance:', error);
       alert(`Erreur : ${error.message}`);
@@ -531,30 +569,46 @@ class App {
 
   /**
    * Handle toggle over state
+   * Note: Store update happens via SSE event
    */
   async handleToggleOver(id, isOver) {
     try {
       const formData = new FormData();
       formData.append('isOver', isOver);
-      const performance = await updatePerformance(id, formData);
-      store.updatePerformance(id, performance);
+      await updatePerformance(id, formData);
+      // SSE will handle updating store
     } catch (error) {
       console.error('Failed to toggle over state:', error);
-      // Reload to restore correct state
+      await this.loadPerformances();
+    }
+  }
+
+  /**
+   * Handle toggle cancelled state
+   * Note: Store update happens via SSE event
+   */
+  async handleToggleCancelled(id, isCancelled) {
+    try {
+      const formData = new FormData();
+      formData.append('isCancelled', isCancelled);
+      await updatePerformance(id, formData);
+      // SSE will handle updating store
+    } catch (error) {
+      console.error('Failed to toggle cancelled state:', error);
       await this.loadPerformances();
     }
   }
 
   /**
    * Handle reorder performances
+   * Note: Store update happens via SSE event
    */
   async handleReorder(newOrder) {
     try {
-      const performances = await reorderPerformances(newOrder);
-      store.reorderPerformances(performances);
+      await reorderPerformances(newOrder);
+      // SSE will handle updating store
     } catch (error) {
       console.error('Failed to reorder performances:', error);
-      // Reload to restore correct order
       await this.loadPerformances();
     }
   }

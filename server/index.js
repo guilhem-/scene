@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const apiRoutes = require('./routes/api');
 const { router: authRoutes } = require('./routes/auth');
+const eventsRoutes = require('./routes/events');
 const { ensureDataStructure } = require('./utils/fileManager');
 
 const app = express();
@@ -16,6 +17,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 // API routes
 app.use('/api/auth', authRoutes);
+app.use('/api/events', eventsRoutes);
 app.use('/api', apiRoutes);
 
 // SPA fallback - serve index.html for all other routes

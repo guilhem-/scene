@@ -1,6 +1,12 @@
 # Dependencies
 node_modules/
 
+# Electron build output
+dist/
+build/*.ico
+build/*.icns
+build/*.png
+
 # Data files (runtime data and music uploads)
 data/
 

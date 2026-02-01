@@ -40,6 +40,13 @@ export class DragDropManager {
       e.preventDefault();
       return;
     }
+
+    // Don't start drag if interacting with audio slider
+    if (e.target.closest('.audio-slider-container') || e.target.closest('.audio-controls')) {
+      e.preventDefault();
+      return;
+    }
+
     const card = e.target.closest('.performance-card');
     if (!card) return;
 

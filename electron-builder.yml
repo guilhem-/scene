@@ -1,0 +1,64 @@
+appId: com.scene.performancemanager
+productName: Scene Performance Manager
+copyright: Copyright © 2024
+
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - electron/**/*
+  - server/**/*
+  - public/**/*
+  - package.json
+  - "!**/*.md"
+  - "!**/test/**"
+  - "!**/tests/**"
+  - "!**/*.test.js"
+  - "!**/coverage/**"
+  - "!**/infra/**"
+  - "!**/data/**"
+  - "!**/.git/**"
+
+extraResources:
+  - from: server/config/auth.json.example
+    to: app/server/config/auth.json.example
+
+asar: true
+asarUnpack:
+  - "**/*.node"
+  - "**/music-metadata/**"
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: build/icon.ico
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Scene Performance Manager
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  installerHeaderIcon: build/icon.ico
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+  icon: build/icon.icns
+  category: public.app-category.music
+
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+  icon: build
+  category: Audio

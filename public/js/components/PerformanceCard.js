@@ -15,11 +15,13 @@ export class PerformanceCard {
     this.element = null;
     this.statusEl = null;
     this.isCurrentlyPlaying = false;
+    this.isSeeking = false;
 
     // Callbacks
     this.onEdit = options.onEdit || null;
     this.onDelete = options.onDelete || null;
     this.onToggleOver = options.onToggleOver || null;
+    this.onToggleCancelled = options.onToggleCancelled || null;
     this.onPlayStateChange = options.onPlayStateChange || null;
     this.onDurationLoaded = options.onDurationLoaded || null;
   }
@@ -28,10 +30,10 @@ export class PerformanceCard {
    * Create and return the card element
    */
   render() {
-    const { id, title, performerName, performerPseudo, musicFile, startOffset, endTime, fadeIn, fadeOut, isOver } = this.performance;
+    const { id, title, performerName, performerPseudo, category, isConfirmed, instructions, musicFile, startOffset, endTime, fadeIn, fadeOut, isOver, isCancelled } = this.performance;
 
     const card = document.createElement('div');
-    card.className = `performance-card${isOver ? ' is-over' : ''}`;
+    card.className = `performance-card${isOver ? ' is-over' : ''}${isCancelled ? ' is-cancelled' : ''}`;
     card.dataset.id = id;
     card.draggable = this.authenticated;
 
@@ -50,6 +52,11 @@ export class PerformanceCard {
     } else {
       timeRangeText = offsetText;
     }
+
+    // Build category badge
+    const categoryLabels = { solo: 'Solo', enfant: 'Enfant', groupe: 'Groupe' };
+    const categoryClass = category || 'solo';
+    const categoryBadgeHtml = `<span class="category-badge category-${categoryClass}">${categoryLabels[categoryClass] || 'Solo'}</span>`;
 
     // Build fade badges (show when enabled)
     const fadeBadges = [];
@@ -71,6 +78,12 @@ export class PerformanceCard {
       </label>
     ` : '';
 
+    const cancelledToggleCompactHtml = this.authenticated ? `
+      <label class="cancelled-toggle">
+        <input type="checkbox" class="cancelled-checkbox" checked>
+      </label>
+    ` : '';
+
     const overToggleHtml = this.authenticated ? `
       <label class="over-toggle">
         <input type="checkbox" class="over-checkbox">
@@ -78,17 +91,36 @@ export class PerformanceCard {
       </label>
     ` : '';
 
-    const audioControlsHtml = this.authenticated && musicFile ? `
-      <div class="audio-controls">
-        <button class="btn btn-primary play-btn" title="Lecture">&#9658;</button>
-        <button class="btn btn-secondary pause-btn" title="Pause" style="display: none;">&#10074;&#10074;</button>
-        <button class="btn btn-secondary stop-btn" title="Arrêt">&#9632;</button>
-      </div>
-      <span class="audio-status">Prêt</span>
-    ` : (musicFile ? '<span class="no-music">Audio disponible</span>' : '<span class="no-music">Pas de fichier musical</span>');
+    const cancelledToggleHtml = this.authenticated ? `
+      <label class="cancelled-toggle">
+        <input type="checkbox" class="cancelled-checkbox"${isCancelled ? ' checked' : ''}>
+        <span>Annulé</span>
+      </label>
+    ` : '';
 
-    if (isOver) {
-      // Compact view for completed performances
+    // Determine audio controls HTML based on confirmation and file status
+    let audioControlsHtml;
+    if (isConfirmed === false) {
+      audioControlsHtml = '<span class="no-confirmation">Pas de confirmation</span>';
+    } else if (this.authenticated && musicFile) {
+      audioControlsHtml = `
+        <div class="audio-controls">
+          <button class="btn btn-primary play-btn" title="Lecture">&#9658;</button>
+          <button class="btn btn-secondary pause-btn" title="Pause" style="display: none;">&#10074;&#10074;</button>
+          <button class="btn btn-secondary stop-btn" title="Arrêt">&#9632;</button>
+        </div>
+        <span class="audio-status">Prêt</span>
+      `;
+    } else if (musicFile) {
+      audioControlsHtml = '<span class="no-music">Audio disponible</span>';
+    } else {
+      audioControlsHtml = '<span class="no-music">Pas de fichier musical</span>';
+    }
+
+    if (isOver || isCancelled) {
+      // Compact view for completed or cancelled performances
+      const statusToggleHtml = isCancelled ? cancelledToggleCompactHtml : overToggleCompactHtml;
+      const cancelledBadgeHtml = isCancelled ? '<span class="cancelled-badge">Annulé</span>' : '';
       card.innerHTML = `
         <div class="card-handle" title="Glisser pour réordonner">
           <span class="card-position">${this.position}</span>
@@ -96,18 +128,26 @@ export class PerformanceCard {
         </div>
         <div class="card-content">
           <div class="card-header card-header-compact">
-            ${overToggleCompactHtml}
+            ${statusToggleHtml}
             <div class="card-info">
               <span class="card-title-compact">${this.escapeHtml(title)}</span>
               <span class="card-performer-compact">
                 ${this.escapeHtml(performerName)}${performerPseudo ? ` (${this.escapeHtml(performerPseudo)})` : ''}
               </span>
             </div>
+            ${cancelledBadgeHtml}
+            ${categoryBadgeHtml}
             ${actionsHtml}
           </div>
         </div>
       `;
     } else {
+      // Build instructions badge if present
+      const instructionsBadgeHtml = instructions ? `
+          <div class="card-instructions">
+            <span class="instructions-badge">${this.escapeHtml(instructions)}</span>
+          </div>` : '';
+
       // Full view for active performances
       card.innerHTML = `
         <div class="card-handle" title="Glisser pour réordonner">
@@ -143,12 +183,14 @@ export class PerformanceCard {
           <div class="card-body">
             ${audioControlsHtml}
             <div class="card-meta">
+              ${categoryBadgeHtml}
               ${musicFile ? `<span class="file-badge" title="${this.escapeHtml(musicFile.originalName)}">${this.escapeHtml(this.truncateFilename(musicFile.originalName))}</span>` : ''}
               <span class="offset-badge" title="Plage de lecture audio">${timeRangeText}</span>
               ${fadeBadgesHtml}
               ${overToggleHtml}
+              ${cancelledToggleHtml}
             </div>
-          </div>
+          </div>${instructionsBadgeHtml}
         </div>
       `;
     }
@@ -188,10 +230,19 @@ export class PerformanceCard {
           }
         });
       }
+
+      const cancelledCheckbox = this.element.querySelector('.cancelled-checkbox');
+      if (cancelledCheckbox) {
+        cancelledCheckbox.addEventListener('change', (e) => {
+          if (this.onToggleCancelled) {
+            this.onToggleCancelled(this.performance, e.target.checked);
+          }
+        });
+      }
     }
 
-    // Audio controls (only for authenticated users with non-over performances with music)
-    if (this.authenticated && this.performance.musicFile && !this.performance.isOver) {
+    // Audio controls (only for authenticated users with confirmed, non-over/non-cancelled performances with music)
+    if (this.authenticated && this.performance.musicFile && this.performance.isConfirmed !== false && !this.performance.isOver && !this.performance.isCancelled) {
       this.statusEl = this.element.querySelector('.audio-status');
       this.sliderContainer = this.element.querySelector('.audio-slider-container');
       this.slider = this.element.querySelector('.audio-slider');
@@ -420,6 +471,9 @@ export class PerformanceCard {
   updateSlider(currentTime, duration) {
     if (!this.slider || !duration || duration <= 0) return;
 
+    // Don't update while user is seeking
+    if (this.isSeeking) return;
+
     const percent = (currentTime / duration) * 100;
     this.slider.value = percent;
     this.slider.max = 100;
@@ -443,6 +497,7 @@ export class PerformanceCard {
    */
   handleSliderChange(e) {
     if (!this.audioPlayer) return;
+    this.isSeeking = true;
     const duration = this.audioPlayer.getDuration();
     const newTime = (e.target.value / 100) * duration;
     if (this.sliderCurrent) {
@@ -464,6 +519,7 @@ export class PerformanceCard {
     const duration = this.audioPlayer.getDuration();
     const newTime = (e.target.value / 100) * duration;
     this.audioPlayer.seekTo(newTime);
+    this.isSeeking = false;
   }
 
   /**

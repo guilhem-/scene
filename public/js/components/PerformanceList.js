@@ -16,6 +16,7 @@ export class PerformanceList {
     this.onEdit = null;
     this.onDelete = null;
     this.onToggleOver = null;
+    this.onToggleCancelled = null;
     this.onDurationLoaded = null;
   }
 
@@ -55,6 +56,7 @@ export class PerformanceList {
         onEdit: this.onEdit,
         onDelete: this.onDelete,
         onToggleOver: this.onToggleOver,
+        onToggleCancelled: this.onToggleCancelled,
         onPlayStateChange: (id, isPlaying) => this.handlePlayStateChange(id, isPlaying),
         onDurationLoaded: (id, duration) => {
           if (this.onDurationLoaded) this.onDurationLoaded(id, duration);

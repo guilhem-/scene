@@ -7,10 +7,11 @@ const {
   writePerformances,
   deletePerformanceDir,
   getStoredPath,
-  DATA_DIR
+  getDataDir
 } = require('../utils/fileManager');
 const { upload, saveUploadedFile } = require('./upload');
 const { requireAuth } = require('./auth');
+const { performanceEvents } = require('../utils/events');
 
 const router = express.Router();
 
@@ -35,7 +36,7 @@ router.get('/performances', async (req, res) => {
  */
 router.post('/performances', requireAuth, upload.single('musicFile'), async (req, res) => {
   try {
-    const { title, performerName, performerPseudo, startOffsetMinutes, startOffsetSeconds, endTimeMinutes, endTimeSeconds, fadeIn, fadeOut, duration } = req.body;
+    const { title, performerName, performerPseudo, category, isConfirmed, instructions, startOffsetMinutes, startOffsetSeconds, endTimeMinutes, endTimeSeconds, fadeIn, fadeOut, duration } = req.body;
 
     // Validate required fields
     if (!title || !performerName) {
@@ -50,6 +51,8 @@ router.post('/performances', requireAuth, upload.single('musicFile'), async (req
       title,
       performerName,
       performerPseudo: performerPseudo || '',
+      category: category || 'solo',
+      instructions: instructions || '',
       musicFile: null,
       startOffset: {
         minutes: parseInt(startOffsetMinutes, 10) || 0,
@@ -62,7 +65,9 @@ router.post('/performances', requireAuth, upload.single('musicFile'), async (req
       fadeIn: fadeIn !== 'false',
       fadeOut: fadeOut !== 'false',
       duration: parseFloat(duration) || 0,
+      isConfirmed: isConfirmed !== 'false',
       isOver: false,
+      isCancelled: false,
       createdAt: now,
       updatedAt: now
     };
@@ -85,6 +90,9 @@ router.post('/performances', requireAuth, upload.single('musicFile'), async (req
     const data = await readPerformances();
     data.performances.push(performance);
     await writePerformances(data);
+
+    // Broadcast event
+    performanceEvents.performanceCreated(performance);
 
     res.status(201).json(performance);
   } catch (error) {
@@ -130,6 +138,9 @@ router.put('/performances/reorder', requireAuth, express.json(), async (req, res
     data.performances = reordered;
     await writePerformances(data);
 
+    // Broadcast event
+    performanceEvents.performancesReordered(data.performances);
+
     res.json(data.performances);
   } catch (error) {
     console.error('Error reordering performances:', error);
@@ -145,7 +156,7 @@ router.put('/performances/reorder', requireAuth, express.json(), async (req, res
 router.put('/performances/:id', requireAuth, upload.single('musicFile'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, performerName, performerPseudo, startOffsetMinutes, startOffsetSeconds, endTimeMinutes, endTimeSeconds, fadeIn, fadeOut, duration, isOver } = req.body;
+    const { title, performerName, performerPseudo, category, isConfirmed, instructions, startOffsetMinutes, startOffsetSeconds, endTimeMinutes, endTimeSeconds, fadeIn, fadeOut, duration, isOver, isCancelled } = req.body;
 
     const data = await readPerformances();
     const index = data.performances.findIndex(p => p.id === id);
@@ -160,6 +171,11 @@ router.put('/performances/:id', requireAuth, upload.single('musicFile'), async (
     if (title !== undefined) performance.title = title;
     if (performerName !== undefined) performance.performerName = performerName;
     if (performerPseudo !== undefined) performance.performerPseudo = performerPseudo;
+    if (category !== undefined) performance.category = category;
+    if (instructions !== undefined) performance.instructions = instructions;
+    if (isConfirmed !== undefined) {
+      performance.isConfirmed = isConfirmed === 'true' || isConfirmed === true;
+    }
     if (startOffsetMinutes !== undefined || startOffsetSeconds !== undefined) {
       const parsedOffsetMin = parseInt(startOffsetMinutes, 10);
       const parsedOffsetSec = parseInt(startOffsetSeconds, 10);
@@ -184,6 +200,9 @@ router.put('/performances/:id', requireAuth, upload.single('musicFile'), async (
     }
     if (isOver !== undefined) {
       performance.isOver = isOver === 'true' || isOver === true;
+    }
+    if (isCancelled !== undefined) {
+      performance.isCancelled = isCancelled === 'true' || isCancelled === true;
     }
     if (duration !== undefined) {
       performance.duration = parseFloat(duration) || 0;
@@ -211,6 +230,9 @@ router.put('/performances/:id', requireAuth, upload.single('musicFile'), async (
     performance.updatedAt = new Date().toISOString();
     data.performances[index] = performance;
     await writePerformances(data);
+
+    // Broadcast event
+    performanceEvents.performanceUpdated(performance);
 
     res.json(performance);
   } catch (error) {
@@ -242,6 +264,9 @@ router.delete('/performances/:id', requireAuth, async (req, res) => {
     data.performances.splice(index, 1);
     await writePerformances(data);
 
+    // Broadcast event
+    performanceEvents.performanceDeleted(id);
+
     res.json({ success: true });
   } catch (error) {
     console.error('Error deleting performance:', error);
@@ -268,10 +293,27 @@ router.get('/performances/:id/music', async (req, res) => {
       return res.status(404).json({ error: 'No music file for this performance' });
     }
 
-    const filePath = path.join(__dirname, '../..', performance.musicFile.storedPath);
+    // storedPath is like "data/perf_xxx/file.mp3", strip "data/" prefix and use DATA_DIR
+    const dataDir = getDataDir();
+    const relativePath = performance.musicFile.storedPath.replace(/^data\//, '');
+    const filePath = path.join(dataDir, relativePath);
+    const fileExists = fs.existsSync(filePath);
 
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: 'Music file not found on disk' });
+    // Always include debug info in response headers for troubleshooting
+    res.setHeader('X-Debug-DataDir', dataDir);
+    res.setHeader('X-Debug-FilePath', filePath);
+    res.setHeader('X-Debug-Exists', String(fileExists));
+
+    if (!fileExists) {
+      return res.status(404).json({
+        error: 'Music file not found on disk',
+        debug: {
+          storedPath: performance.musicFile.storedPath,
+          dataDir,
+          filePath,
+          relativePath
+        }
+      });
     }
 
     const stat = fs.statSync(filePath);

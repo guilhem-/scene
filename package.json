@@ -2,12 +2,14 @@
   "name": "scene-performance-manager",
   "version": "1.0.0",
   "description": "Web-based performance list manager with audio playback",
-  "main": "server/index.js",
+  "main": "electron/main.js",
   "scripts": {
     "start": "node server/index.js",
     "run": "node server/index.js",
     "dev": "node --watch server/index.js",
-    "test": "jest --coverage"
+    "test": "jest --coverage",
+    "electron:dev": "cross-env NODE_ENV=development electron .",
+    "electron:build": "electron-builder --win"
   },
   "keywords": [
     "performance",
@@ -23,6 +25,9 @@
     "music-metadata": "^11.10.6"
   },
   "devDependencies": {
+    "cross-env": "^10.1.0",
+    "electron": "^40.0.0",
+    "electron-builder": "^26.4.0",
     "jest": "^30.2.0",
     "jest-environment-jsdom": "^30.2.0",
     "supertest": "^7.2.2"

@@ -2,22 +2,27 @@ const fs = require('fs').promises;
 const fsSync = require('fs');
 const path = require('path');
 
-const DATA_DIR = path.join(__dirname, '../../data');
-const PERFORMANCES_FILE = path.join(DATA_DIR, 'performances.json');
+// Use getter to ensure DATA_DIR is read fresh each time (important for Electron)
+function getDataDir() {
+  return process.env.DATA_DIR || path.join(__dirname, '../../data');
+}
 
 /**
  * Ensure data directory and performances.json exist
  */
 async function ensureDataStructure() {
   try {
-    await fs.mkdir(DATA_DIR, { recursive: true });
+    const dataDir = getDataDir();
+    const performancesFile = path.join(dataDir, 'performances.json');
 
-    if (!fsSync.existsSync(PERFORMANCES_FILE)) {
+    await fs.mkdir(dataDir, { recursive: true });
+
+    if (!fsSync.existsSync(performancesFile)) {
       const initialData = {
         version: '1.0',
         performances: []
       };
-      await fs.writeFile(PERFORMANCES_FILE, JSON.stringify(initialData, null, 2));
+      await fs.writeFile(performancesFile, JSON.stringify(initialData, null, 2));
     }
   } catch (error) {
     console.error('Error ensuring data structure:', error);
@@ -30,7 +35,8 @@ async function ensureDataStructure() {
  */
 async function readPerformances() {
   await ensureDataStructure();
-  const data = await fs.readFile(PERFORMANCES_FILE, 'utf-8');
+  const performancesFile = path.join(getDataDir(), 'performances.json');
+  const data = await fs.readFile(performancesFile, 'utf-8');
   return JSON.parse(data);
 }
 
@@ -39,14 +45,15 @@ async function readPerformances() {
  */
 async function writePerformances(data) {
   await ensureDataStructure();
-  await fs.writeFile(PERFORMANCES_FILE, JSON.stringify(data, null, 2));
+  const performancesFile = path.join(getDataDir(), 'performances.json');
+  await fs.writeFile(performancesFile, JSON.stringify(data, null, 2));
 }
 
 /**
  * Create directory for a performance's music file
  */
 async function createPerformanceDir(performanceId) {
-  const dir = path.join(DATA_DIR, performanceId);
+  const dir = path.join(getDataDir(), performanceId);
   await fs.mkdir(dir, { recursive: true });
   return dir;
 }
@@ -55,7 +62,7 @@ async function createPerformanceDir(performanceId) {
  * Delete a performance's directory and all its contents
  */
 async function deletePerformanceDir(performanceId) {
-  const dir = path.join(DATA_DIR, performanceId);
+  const dir = path.join(getDataDir(), performanceId);
   try {
     await fs.rm(dir, { recursive: true, force: true });
   } catch (error) {
@@ -69,7 +76,7 @@ async function deletePerformanceDir(performanceId) {
  * Get the full path for a music file
  */
 function getMusicFilePath(performanceId, filename) {
-  return path.join(DATA_DIR, performanceId, filename);
+  return path.join(getDataDir(), performanceId, filename);
 }
 
 /**
@@ -87,5 +94,5 @@ module.exports = {
   deletePerformanceDir,
   getMusicFilePath,
   getStoredPath,
-  DATA_DIR
+  getDataDir
 };

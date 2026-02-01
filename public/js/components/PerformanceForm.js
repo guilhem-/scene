@@ -26,6 +26,9 @@ export class PerformanceForm {
       title: document.getElementById('form-title'),
       performerName: document.getElementById('form-performer-name'),
       performerPseudo: document.getElementById('form-performer-pseudo'),
+      category: document.getElementById('form-category'),
+      confirmed: document.getElementById('form-confirmed'),
+      instructions: document.getElementById('form-instructions'),
       musicFile: document.getElementById('form-music-file'),
       offsetMin: document.getElementById('form-offset-min'),
       offsetSec: document.getElementById('form-offset-sec'),
@@ -349,6 +352,9 @@ export class PerformanceForm {
     this.fields.title.value = performance.title;
     this.fields.performerName.value = performance.performerName;
     this.fields.performerPseudo.value = performance.performerPseudo || '';
+    this.fields.category.value = performance.category || 'solo';
+    this.fields.confirmed.checked = performance.isConfirmed !== false;
+    this.fields.instructions.value = performance.instructions || '';
 
     // Show existing file section if file exists
     if (performance.musicFile) {
@@ -378,6 +384,9 @@ export class PerformanceForm {
     formData.append('title', this.fields.title.value.trim());
     formData.append('performerName', this.fields.performerName.value.trim());
     formData.append('performerPseudo', this.fields.performerPseudo.value.trim());
+    formData.append('category', this.fields.category.value);
+    formData.append('isConfirmed', this.fields.confirmed.checked);
+    formData.append('instructions', this.fields.instructions.value.trim());
     formData.append('startOffsetMinutes', this.fields.offsetMin.value);
     formData.append('startOffsetSeconds', this.fields.offsetSec.value);
     formData.append('endTimeMinutes', this.fields.endTimeMin.value);

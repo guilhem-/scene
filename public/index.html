@@ -17,7 +17,7 @@
         <p class="subtitle">Gestionnaire de Performances</p>
       </div>
       <div class="header-actions">
-        <span id="end-time-badge" class="end-time-badge" title="Heure de fin estimée du spectacle">Fin --:--</span>
+        <span id="end-time-badge" class="end-time-badge" title="Heure de fin estimée du spectacle">Fin --:--:--</span>
         <button id="show-history-btn" class="btn btn-secondary btn-sm">Historique</button>
         <button id="login-btn" class="btn btn-primary btn-sm">Connexion</button>
         <button id="logout-btn" class="btn btn-secondary btn-sm hidden">Deconnexion</button>
@@ -62,7 +62,7 @@
         <input type="hidden" id="form-id" name="id">
 
         <div class="form-group">
-          <label for="form-title">Titre *</label>
+          <label for="form-title">Titre/Oeuvre *</label>
           <input type="text" id="form-title" name="title" required>
         </div>
 
@@ -72,8 +72,29 @@
         </div>
 
         <div class="form-group">
-          <label for="form-performer-pseudo">Nom de scène (optionnel)</label>
+          <label for="form-performer-pseudo">Personnage (optionnel)</label>
           <input type="text" id="form-performer-pseudo" name="performerPseudo">
+        </div>
+
+        <div class="form-group form-group-inline">
+          <label for="form-category">Catégorie</label>
+          <select id="form-category" name="category">
+            <option value="solo">Solo</option>
+            <option value="enfant">Enfant</option>
+            <option value="groupe">Groupe</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="form-confirmed" name="isConfirmed" checked>
+            <span>Confirmé</span>
+          </label>
+        </div>
+
+        <div class="form-group">
+          <label for="form-instructions">Instructions/détails (optionnel)</label>
+          <input type="text" id="form-instructions" name="instructions" placeholder="Ex: Prévoir micro sans fil">
         </div>
 
         <div class="form-group">
